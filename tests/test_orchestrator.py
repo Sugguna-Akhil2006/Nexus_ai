@@ -188,6 +188,8 @@ class TestOrchestratorSystem(unittest.TestCase):
 
         # Case 2: retry (succeeds on second attempt)
         crashing.failures = 0  # reset
+        crashing.state = AgentState.IDLE
+        crashing.status = AgentStatus.HEALTHY
         req_retry = AgentRequest(
             request_id="r_retry",
             user_id="u",
@@ -200,6 +202,8 @@ class TestOrchestratorSystem(unittest.TestCase):
 
         # Case 3: ignore (records status failed, does not crash orchestrator)
         crashing.failures = 0  # reset
+        crashing.state = AgentState.IDLE
+        crashing.status = AgentStatus.HEALTHY
         req_ignore = AgentRequest(
             request_id="r_ignore",
             user_id="u",

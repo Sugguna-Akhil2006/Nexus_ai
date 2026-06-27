@@ -245,16 +245,18 @@ class DefaultAgentSelectionStrategy(AgentSelectionStrategy):
         if not candidates:
             raise AgentValidationError(f"No registered agent supports capability: {capability.value}")
 
-        healthy = [c for c in candidates if c.status == AgentStatus.HEALTHY]
-        if not healthy:
-            healthy = [c for c in candidates if c.status == AgentStatus.DEGRADED]
+        # Uninitialized, healthy, and degraded status agents are all candidates
+        healthy = [
+            c for c in candidates
+            if c.status in (AgentStatus.HEALTHY, AgentStatus.UNINITIALIZED, AgentStatus.DEGRADED)
+        ]
 
         if not healthy:
             raise AgentValidationError(f"No healthy agent available for capability: {capability.value}")
 
-        # Sort Idle state first
+        # Sort Idle or Uninitialized state first
         def score(a: BaseAgent) -> int:
-            if a.state == AgentState.IDLE:
+            if a.state in (AgentState.IDLE, AgentState.UNINITIALIZED):
                 return 0
             elif a.state == AgentState.BUSY:
                 return 1
@@ -495,6 +497,9 @@ class OrchestratorAgent(BaseAgent):
                             self.logger.info(f"Retrying failed agent '{aid}' execution.")
                             try:
                                 agent = self.registry.get_agent(aid)
+                                # Reset error state to allow retry execution
+                                agent.state = AgentState.IDLE
+                                agent.status = AgentStatus.HEALTHY
                                 task = Task(description=request.input, metadata=request.context.copy())
                                 res = self._run_single_agent(agent, task, "abort")
                                 results[aid] = res
