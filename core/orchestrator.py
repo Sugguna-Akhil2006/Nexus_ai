@@ -507,7 +507,7 @@ class OrchestratorAgent(BaseAgent):
                                 raise OrchestrationPlanError(f"Agent '{aid}' retry execution aborted: {retry_err}") from retry_err
                         else:
                             # ignore
-                            results[aid] = {"status": "failed", "error": str(e)}
+                            results[aid] = {aid: {"status": "failed", "error": str(e)}}
 
         return results
 
