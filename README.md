@@ -1,1 +1,3 @@
-# Nexus_ai
+# Nexus AI
+
+An AI agent workspace.
