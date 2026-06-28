@@ -698,12 +698,10 @@
         <div class="section-title">Model Specifications</div>
         <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-size:11.5px; display:flex; flex-direction:column; gap:4px;" id="model-specs-box">
           <div class="debug-row"><span class="label">Current Provider</span><span class="val" id="spec-provider">ollama</span></div>
-          <div class="debug-row"><span class="label">Model Name</span><span class="val" id="spec-name">llama3</span></div>
-          <div class="debug-row"><span class="label">Temperature</span><span class="val">0.7</span></div>
-          <div class="debug-row"><span class="label">Max Output Tokens</span><span class="val">2048</span></div>
-          <div class="debug-row"><span class="label">Context Window</span><span class="val">8192</span></div>
-          <div class="debug-row"><span class="label">Streaming Enabled</span><span class="val">True</span></div>
-          <div class="debug-row"><span class="label">Fallback Provider</span><span class="val">mock-fallback</span></div>
+          <div class="debug-row"><span class="label">Connection Status</span><span class="val" id="spec-connected">Connected</span></div>
+          <div class="debug-row"><span class="label">Current Model</span><span class="val" id="spec-name">llama3</span></div>
+          <div class="debug-row"><span class="label">Fallback Enabled</span><span class="val" id="spec-fallback">False</span></div>
+          <div class="debug-row"><span class="label">Last Provider Error</span><span class="val" id="spec-error" style="word-break: break-all; max-width: 150px;">None</span></div>
         </div>
       </div>
 
@@ -845,6 +843,20 @@
         if (data.status === "healthy") {
           document.getElementById("connection-status").innerHTML = `<div class="status-dot"></div><span>ONLINE</span>`;
           document.getElementById("connection-status").className = "status-badge";
+        }
+        
+        // Update Model Specifications Telemetry
+        if (data.ollama_debug) {
+          const odb = data.ollama_debug;
+          document.getElementById("spec-provider").textContent = odb.fallback ? "mock" : odb.provider;
+          document.getElementById("spec-connected").innerHTML = odb.status === "connected" 
+            ? `<span style="color: var(--green);">Connected (${odb.latency_ms}ms)</span>` 
+            : `<span style="color: var(--red);">Disconnected</span>`;
+          document.getElementById("spec-name").textContent = odb.model;
+          document.getElementById("spec-fallback").textContent = odb.fallback ? "True" : "False";
+          document.getElementById("spec-fallback").style.color = odb.fallback ? "var(--yellow)" : "var(--green)";
+          document.getElementById("spec-error").textContent = odb.last_error || "None";
+          document.getElementById("spec-error").style.color = odb.last_error ? "var(--red)" : "var(--text-mute)";
         }
         
         // Render Health indicators
@@ -1332,6 +1344,7 @@ Exception: ${msg}
     loadWorkspaces();
 
     // Auto-refresh diagnostics panel every 5 seconds
+    setInterval(checkHealth, 5000);
     setInterval(loadSystemDiagnostics, 5000);
   </script>
 </body>

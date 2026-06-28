@@ -95,6 +95,23 @@ class ErrorMapper:
 
 
 # =====================================================================
+# Provider State Telemetry
+# =====================================================================
+
+from datetime import datetime
+
+@dataclass
+class ProviderState:
+    connected: bool = False
+    provider: str = "ollama"
+    model: str = "llama3"
+    latency_ms: float = 0.0
+    last_error: str = ""
+    last_checked: str = ""
+    fallback: bool = True
+
+
+# =====================================================================
 # Ollama Provider
 # =====================================================================
 
@@ -115,6 +132,12 @@ class OllamaProvider(BaseProvider, ModelProvider):
         super().__init__(p_config)
         self.ollama_config = config
         self._cached_models: List[ModelInfo] = []
+        self.downloaded_models: List[str] = []
+
+        # State and background monitor
+        self.provider_state = ProviderState(provider="ollama")
+        self._monitor_thread = threading.Thread(target=self._connection_monitor, daemon=True)
+        self._monitor_thread.start()
 
         self._publish_event("provider.connected", provider="ollama")
 
@@ -131,33 +154,75 @@ class OllamaProvider(BaseProvider, ModelProvider):
         )
 
     def initialize(self) -> None:
-        """Initializes and refreshes models catalog."""
+        """Initializes and runs synchronous check on startup."""
+        self._logger.info("Initializing Ollama Provider")
+        self._check_connection()
+
+    def _check_connection(self) -> None:
+        self._logger.info("Checking localhost:11434")
+        start_time = time.perf_counter()
         try:
-            self._cached_models = self.list_models()
-        except Exception:
-            # Fallback mock models cache if local service offline
-            self._cached_models = [
-                ModelInfo(
-                    model_id="llama3",
+            url = f"http://{self.ollama_config.host}:{self.ollama_config.port}/api/tags"
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=1.5) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                models = [m.get("name") for m in data.get("models", [])]
+
+            latency = (time.perf_counter() - start_time) * 1000.0
+
+            # Update state parameters
+            self.provider_state.connected = True
+            self.provider_state.fallback = False
+            self.provider_state.latency_ms = round(latency, 2)
+            self.provider_state.last_error = ""
+            self.provider_state.last_checked = datetime.utcnow().isoformat()
+
+            # Refresh local models catalog representation
+            discovered = []
+            for item in data.get("models", []):
+                name = item.get("name", "unknown")
+                capabilities = [ModelCapability.CHAT, ModelCapability.COMPLETION, ModelCapability.STREAMING]
+                if "embed" in name or "minilm" in name:
+                    capabilities = [ModelCapability.EMBEDDING]
+
+                discovered.append(ModelInfo(
+                    model_id=name,
                     provider="ollama",
-                    name="Llama 3 8B",
-                    version="latest",
-                    context_window=8192,
+                    name=name.split(":")[0].capitalize(),
+                    version=name.split(":")[-1] if ":" in name else "latest",
+                    context_window=4096,
                     max_output_tokens=2048,
                     supported_modalities=["text"],
-                    capabilities=[ModelCapability.CHAT, ModelCapability.COMPLETION, ModelCapability.STREAMING]
-                ),
-                ModelInfo(
-                    model_id="nomic-embed-text",
-                    provider="ollama",
-                    name="Nomic Embed Text",
-                    version="latest",
-                    context_window=2048,
-                    max_output_tokens=0,
-                    supported_modalities=["text"],
-                    capabilities=[ModelCapability.EMBEDDING]
-                )
-            ]
+                    capabilities=capabilities,
+                    metadata=item
+                ))
+            self._cached_models = discovered
+
+            if models:
+                self.downloaded_models = models
+                self.provider_state.model = models[0]
+            else:
+                self.downloaded_models = []
+                self.provider_state.model = "llama3"
+
+            self._logger.info(f"Ollama connection successful. Detected models: {models}. Provider Ready.")
+
+        except Exception as e:
+            latency = (time.perf_counter() - start_time) * 1000.0
+            self.provider_state.connected = False
+            self.provider_state.fallback = True
+            self.provider_state.latency_ms = round(latency, 2)
+            self.provider_state.last_error = str(e)
+            self.provider_state.last_checked = datetime.utcnow().isoformat()
+            self.provider_state.model = "llama3"
+            self.downloaded_models = []
+            self._logger.warning(f"Connection failed. Reason: {e}. Switching to Mock Provider.")
+
+    def _connection_monitor(self) -> None:
+        self._logger.info("Initializing Ollama Provider connection monitor thread")
+        while True:
+            self._check_connection()
+            time.sleep(5.0)
 
     def generate(self, request: InferenceRequest) -> InferenceResponse:
         self._publish_event("provider.request.started", model=request.model)
@@ -167,8 +232,8 @@ class OllamaProvider(BaseProvider, ModelProvider):
         chat_models = [m.model_id for m in self._cached_models if ModelCapability.CHAT in m.capabilities]
         is_mock_config = self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False)
 
-        # Handle Mock URL / offline tests
-        if is_mock_config or not chat_models:
+        # Handle Mock URL / offline tests fallback
+        if is_mock_config or not self.provider_state.connected or not chat_models:
             latency = 0.05
             content = f"Mock local Ollama response matching '{request.prompt or 'hello'}'"
             self.metrics.record(success=True, latency=latency)
@@ -183,8 +248,12 @@ class OllamaProvider(BaseProvider, ModelProvider):
                 model=request.model
             )
 
-        # Automatically translate mock model or missing models to the first downloaded local model
-        if model_name == "mock-chat-model" or (model_name not in chat_models and f"{model_name}:latest" not in chat_models):
+        # Auto model detection logic
+        if model_name != "mock-chat-model":
+            if model_name not in chat_models and f"{model_name}:latest" not in chat_models:
+                self._logger.warning("Configured model '%s' not found locally. Falling back to default model '%s'.", model_name, chat_models[0])
+                model_name = chat_models[0]
+        else:
             model_name = chat_models[0]
 
         headers = {"Content-Type": "application/json"}
@@ -250,8 +319,8 @@ class OllamaProvider(BaseProvider, ModelProvider):
         chat_models = [m.model_id for m in self._cached_models if ModelCapability.CHAT in m.capabilities]
         is_mock_config = self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False)
 
-        # Fall back to mock stream ONLY when mock host is forced or no local models are available
-        if is_mock_config or not chat_models:
+        # Fall back to mock stream ONLY when mock host is forced, unreachable, or no local models are available
+        if is_mock_config or not self.provider_state.connected or not chat_models:
             query = ""
             if request.messages:
                 query = request.messages[-1].get("content", "")
@@ -279,8 +348,12 @@ class OllamaProvider(BaseProvider, ModelProvider):
                 )
             return
 
-        # Automatically translate mock model or missing models to the first downloaded local model
-        if model_name == "mock-chat-model" or (model_name not in chat_models and f"{model_name}:latest" not in chat_models):
+        # Auto model detection logic
+        if model_name != "mock-chat-model":
+            if model_name not in chat_models and f"{model_name}:latest" not in chat_models:
+                self._logger.warning("Configured model '%s' not found locally. Falling back to default model '%s'.", model_name, chat_models[0])
+                model_name = chat_models[0]
+        else:
             model_name = chat_models[0]
 
         headers = {"Content-Type": "application/json"}

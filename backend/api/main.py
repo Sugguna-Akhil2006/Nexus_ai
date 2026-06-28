@@ -187,10 +187,12 @@ workspace_provider = DBWorkspaceProvider(db_storage)
 
 # Initialize and Register agents
 workspace_registry = WorkspaceRegistry()
-workspace_registry.register_provider("db_provider", workspace_provider)
+if "db_provider" not in workspace_registry.list_providers():
+    workspace_registry.register_provider("db_provider", workspace_provider)
 
 vector_provider = QdrantVectorProvider(mock=True)
-VectorRegistry().register_provider("qdrant", vector_provider)
+if "qdrant" not in VectorRegistry().list_providers():
+    VectorRegistry().register_provider("qdrant", vector_provider)
 
 # Ensure collection exists
 VectorRegistry().get_provider("qdrant").create_collection(CollectionInfo(
@@ -202,20 +204,18 @@ VectorRegistry().get_provider("qdrant").create_collection(CollectionInfo(
 
 # Configure default embedding providers in registry
 from backend.agents.embedding import EmbeddingRegistry, MockEmbeddingProvider
-EmbeddingRegistry().register_provider("mock_embedding", MockEmbeddingProvider())
+try:
+    EmbeddingRegistry().get_provider("mock_embedding")
+except Exception:
+    EmbeddingRegistry().register_provider("mock_embedding", MockEmbeddingProvider())
 
 # Configure Default Ollama / OpenAI Models in Registry
-try:
-    import urllib.request
-    req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
-    with urllib.request.urlopen(req, timeout=1.0) as resp:
-        pass
-    model_provider = OllamaProvider(config=OllamaConfiguration(host="localhost", port=11434))
-    model_provider.initialize()
-except Exception:
-    model_provider = OllamaProvider(config=OllamaConfiguration(host="mock-host", metadata={"mock": True}))
-    model_provider.initialize()
-ModelRegistry().register_provider("ollama", model_provider)
+ollama_host = os.getenv("OLLAMA_HOST", "localhost")
+ollama_port = int(os.getenv("OLLAMA_PORT", 11434))
+model_provider = OllamaProvider(config=OllamaConfiguration(host=ollama_host, port=ollama_port))
+model_provider.initialize()
+if "ollama" not in ModelRegistry().list_providers():
+    ModelRegistry().register_provider("ollama", model_provider)
 
 # Configure search providers registry
 from backend.agents.search import SearchRegistry, SearchProvider, SearchRequest as AgentSearchRequest, SearchResult as AgentSearchResult
@@ -430,13 +430,26 @@ def list_messages(id: str):
 
 @app.get("/api/health")
 def health_dashboard():
+    try:
+        provider = ModelRegistry().get_provider("ollama")
+        state = getattr(provider, "provider_state", None)
+    except Exception:
+        state = None
+
+    is_connected = state.connected if state else False
+    current_model = state.model if state else "llama3"
+    fallback_active = state.fallback if state else True
+    latency_ms = state.latency_ms if state else 0.0
+    last_err = state.last_error if state else ""
+    last_chk = state.last_checked if state else ""
+
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
             "database": True,
             "vector_store": True,
-            "ollama_provider": True
+            "ollama_provider": is_connected or fallback_active
         },
         "agents": {
             "DocumentAgent": "healthy",
@@ -444,6 +457,15 @@ def health_dashboard():
             "SearchAgent": "healthy",
             "ChatAgent": "healthy",
             "OrchestratorAgent": "healthy"
+        },
+        "ollama_debug": {
+            "provider": "ollama",
+            "status": "connected" if is_connected else "disconnected",
+            "model": current_model,
+            "latency_ms": latency_ms,
+            "last_checked": last_chk,
+            "fallback": fallback_active,
+            "last_error": last_err
         }
     }
 
@@ -452,6 +474,15 @@ def health_dashboard():
 def get_system_debug(workspace_id: str = "default-ws"):
     docs = db_storage.list_documents(workspace_id)
     convs = db_storage.list_conversations(workspace_id)
+
+    try:
+        provider = ModelRegistry().get_provider("ollama")
+        state = getattr(provider, "provider_state", None)
+    except Exception:
+        state = None
+
+    is_connected = state.connected if state else False
+
     return {
         "status": "healthy",
         "performance": {
@@ -481,7 +512,7 @@ def get_system_debug(workspace_id: str = "default-ws"):
             "SearchAgent": "healthy",
             "ChatAgent": "healthy",
             "OrchestratorAgent": "healthy",
-            "OllamaProvider": "healthy"
+            "OllamaProvider": "healthy" if is_connected else "warning"
         }
     }
 
