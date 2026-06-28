@@ -1,5 +1,9 @@
+import sys
+import os
 import traceback
-from core.auth import AuthenticationAgent
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from backend.agents.auth import AuthenticationAgent
 
 try:
     a = AuthenticationAgent()

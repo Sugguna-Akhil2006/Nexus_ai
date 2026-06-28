@@ -322,6 +322,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.api.resume_routes import router as resume_router
+app.include_router(resume_router)
+
 
 @app.post("/api/auth/register")
 def register_user(req: RegisterRequest):
