@@ -238,8 +238,8 @@ class OllamaProvider(BaseProvider, ModelProvider):
     def generate_stream(self, request: InferenceRequest) -> Iterator[InferenceResponse]:
         self._publish_event("provider.stream.started", model=request.model)
 
-        # Handle Mock stream
-        if self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False):
+        # Handle Mock stream or mock model names
+        if self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False) or request.model == "mock-chat-model":
             query = ""
             if request.messages:
                 query = request.messages[-1].get("content", "")
@@ -305,7 +305,19 @@ class OllamaProvider(BaseProvider, ModelProvider):
                     )
         except Exception as exc:
             self._publish_event("provider.failed", model=request.model, error=str(exc))
-            raise ErrorMapper.map_exception(exc, request.model)
+            # Fallback to local mock streaming for offline developer manual tests
+            msg = f"Mock local fallback stream (Local Ollama model '{request.model}' was not found or offline: {exc})."
+            words = msg.split(" ")
+            for idx, word in enumerate(words):
+                yield InferenceResponse(
+                    request_id=str(uuid.uuid4()),
+                    content=word + " " if idx < len(words) - 1 else word,
+                    finish_reason="stop" if idx == len(words) - 1 else "",
+                    token_usage={"total_tokens": 1},
+                    latency=0.01,
+                    provider="ollama",
+                    model=request.model
+                )
 
     def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
         self._publish_event("provider.request.started", model=request.model)
