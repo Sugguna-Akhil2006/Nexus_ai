@@ -172,9 +172,7 @@ class OllamaProvider(BaseProvider, ModelProvider):
 
             # Update state parameters
             self.provider_state.connected = True
-            self.provider_state.fallback = False
             self.provider_state.latency_ms = round(latency, 2)
-            self.provider_state.last_error = ""
             self.provider_state.last_checked = datetime.utcnow().isoformat()
 
             # Refresh local models catalog representation
@@ -201,11 +199,15 @@ class OllamaProvider(BaseProvider, ModelProvider):
             if models:
                 self.downloaded_models = models
                 self.provider_state.model = models[0]
+                self.provider_state.fallback = False
+                self.provider_state.last_error = ""
+                self._logger.info(f"Ollama connection successful. Detected models: {models}. Provider Ready.")
             else:
                 self.downloaded_models = []
-                self.provider_state.model = "llama3"
-
-            self._logger.info(f"Ollama connection successful. Detected models: {models}. Provider Ready.")
+                self.provider_state.model = "None"
+                self.provider_state.fallback = True
+                self.provider_state.last_error = "Ollama is running but no models are installed. Please run 'ollama pull llama3' in your terminal."
+                self._logger.warning("Ollama connection successful but no models are installed. Switching to Mock Provider.")
 
         except Exception as e:
             latency = (time.perf_counter() - start_time) * 1000.0
