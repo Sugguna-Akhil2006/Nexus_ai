@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus AI | Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-Regular.woff2') format('woff2');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-Medium.woff2') format('woff2');
+            font-weight: 500;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-SemiBold.woff2') format('woff2');
+            font-weight: 600;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-Bold.woff2') format('woff2');
+            font-weight: 700;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #e5e1e4;
+        }
+        .font-geist { font-family: 'Geist', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 16px;
+            transition: border-color 0.2s ease;
+        }
+        .glass-card:hover {
+            border-color: #3f3f46;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-high": "#2a2a2c",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-container-highest": "#353437",
+                        "secondary": "#b1c6f9",
+                        "outline-variant": "#424754",
+                        "surface-tint": "#adc6ff",
+                        "surface-bright": "#39393b",
+                        "tertiary-fixed": "#ffdcc6",
+                        "inverse-surface": "#e5e1e4",
+                        "on-primary-container": "#00285d",
+                        "on-primary": "#002e6a",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#d8e2ff",
+                        "secondary-fixed": "#d8e2ff",
+                        "primary-container": "#4d8eff",
+                        "inverse-on-surface": "#313032",
+                        "background": "#131315",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "surface-container-low": "#1c1b1d",
+                        "on-secondary-container": "#9fb5e7",
+                        "on-background": "#e5e1e4",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "on-tertiary-container": "#461f00",
+                        "on-secondary": "#182f59",
+                        "surface-variant": "#353437",
+                        "surface-dim": "#131315",
+                        "surface-container": "#201f22",
+                        "on-secondary-fixed": "#001a42",
+                        "surface-container-lowest": "#0e0e10",
+                        "secondary-container": "#304671",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#df7412",
+                        "on-primary-fixed": "#001a42",
+                        "outline": "#8c909f",
+                        "on-surface": "#e5e1e4",
+                        "on-secondary-fixed-variant": "#304671",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-tertiary-fixed": "#311400",
+                        "on-tertiary": "#502400",
+                        "tertiary": "#ffb786",
+                        "on-error": "#690005",
+                        "primary": "#adc6ff",
+                        "surface": "#131315",
+                        "on-primary-fixed-variant": "#004395",
+                        "inverse-primary": "#005ac2"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "md": "16px",
+                        "2xl": "48px",
+                        "lg": "24px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "container-max": "1280px",
+                        "unit": "8px",
+                        "3xl": "64px"
+                    },
+                    fontFamily: {
+                        "label-sm": ["Geist"],
+                        "label-md": ["Geist"],
+                        "body-lg": ["Inter"],
+                        "code": ["jetbrainsMono"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"]
+                    },
+                    fontSize: {
+                        "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "label-md": ["14px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "1.6", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "code": ["13px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar (Authority: JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-outline-variant bg-surface flex flex-col p-md z-50">
+<div class="mb-xl px-sm">
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Nexus AI</h1>
+<p class="text-on-surface-variant font-label-sm text-label-sm opacity-70">Enterprise Workspace</p>
+</div>
+<button class="bg-primary-container text-on-primary-container h-10 rounded-lg flex items-center justify-center gap-2 mb-lg active:scale-95 transition-transform font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            New Project
+        </button>
+<nav class="flex-1 flex flex-col gap-1 overflow-y-auto">
+<!-- Active Navigation (Semantic Mapping: Dashboard) -->
+<a class="bg-secondary-container text-on-secondary-container rounded-lg font-bold flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-body-md text-body-md">Chat</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">Documents</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-body-md text-body-md">Agents</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-body-md text-body-md">Marketplace</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-lg border-t border-outline-variant/30">
+<a class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg flex items-center gap-3 px-sm py-2 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-body-md text-body-md">Account</span>
+</a>
+</div>
+</aside>
+<!-- TopNavBar (Authority: JSON) -->
+<header class="sticky top-0 w-full z-40 bg-surface/70 backdrop-blur-md border-b border-outline-variant flex items-center justify-between px-gutter h-16 ml-64 max-w-[calc(100%-256px)]">
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">search</span>
+<input class="bg-surface-container-low border border-outline-variant rounded-full pl-10 pr-4 py-1.5 text-label-md font-label-md w-64 focus:outline-none focus:ring-1 focus:ring-primary transition-all" placeholder="Search systems..." type="text"/>
+</div>
+<nav class="flex items-center gap-2 text-label-md font-label-md">
+<span class="text-on-surface-variant">Admin</span>
+<span class="text-outline-variant">/</span>
+<span class="text-primary border-b-2 border-primary pb-1">Global Dashboard</span>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">help</button>
+<div class="w-8 h-8 rounded-full bg-secondary-container border border-outline-variant flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional studio headshot of a high-level executive with sharp lighting and a blurred corporate technology office in the background. The aesthetic is clean and minimal, using deep blacks and soft blue highlights to match the Nexus AI brand colors. The person is wearing a modern charcoal suit with a neutral expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAH6TTWfjsqdmIsD39fKj6vGkvgkTi81X-jjLg6fgnCwpv49WPyas2ynPBp7KepGMVsL8FjcKkTtDHwi1qmSl8PjP3eSClBCdSKDrGMtpxP-kH5pMGeLT-7MXqCSBkNg9fmeqlhYB0y1OgntgFpCgv0L9U5rHXKzaMAOYkxGhx2TASoMkPNNXsvVrjitIbNBfRcvS08sYJiFugnq74yyzSMtSeAJsK-v7wLw5PDrJTWMGwOu2x8JbyS0HYRfjEDupQx37IuFUShnUjk"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 p-lg">
+<div class="max-w-container-max mx-auto space-y-lg">
+<!-- Header Section -->
+<div class="flex items-center justify-between">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Global Administration</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">Platform-wide health and organizational metrics</p>
+</div>
+<div class="flex gap-sm">
+<button class="bg-surface-container-high border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Export Report
+                    </button>
+<button class="bg-primary text-on-primary-fixed-variant px-4 py-2 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                        Refresh Sync
+                    </button>
+</div>
+</div>
+<!-- Metric Cards (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
+<div class="glass-card p-md flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-primary">payments</span>
+<span class="text-emerald-400 font-label-sm text-label-sm flex items-center">+12.5% ↑</span>
+</div>
+<div class="mt-2">
+<p class="text-on-surface-variant font-label-md text-label-md">Total Revenue</p>
+<p class="font-headline-lg text-headline-lg font-bold">$1.2M</p>
+</div>
+</div>
+<div class="glass-card p-md flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-primary">corporate_fare</span>
+<span class="text-emerald-400 font-label-sm text-label-sm flex items-center">+48 new</span>
+</div>
+<div class="mt-2">
+<p class="text-on-surface-variant font-label-md text-label-md">Active Enterprise Orgs</p>
+<p class="font-headline-lg text-headline-lg font-bold">482</p>
+</div>
+</div>
+<div class="glass-card p-md flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-primary">speed</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Perfect</span>
+</div>
+<div class="mt-2">
+<p class="text-on-surface-variant font-label-md text-label-md">System Uptime</p>
+<p class="font-headline-lg text-headline-lg font-bold">99.99%</p>
+</div>
+</div>
+<div class="glass-card p-md flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-primary">group</span>
+<span class="text-emerald-400 font-label-sm text-label-sm flex items-center">+2.1k ↑</span>
+</div>
+<div class="mt-2">
+<p class="text-on-surface-variant font-label-md text-label-md">Active Sessions</p>
+<p class="font-headline-lg text-headline-lg font-bold">14,202</p>
+</div>
+</div>
+</div>
+<!-- Visualization Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Server Load Visualization -->
+<div class="lg:col-span-2 glass-card p-lg flex flex-col gap-md h-[400px] overflow-hidden relative">
+<div class="flex items-center justify-between z-10">
+<div>
+<h3 class="font-headline-md text-headline-md font-bold">Server Load</h3>
+<p class="text-on-surface-variant font-body-md text-body-md">Real-time compute cluster utilization</p>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded font-label-sm text-label-sm">Cluster A</span>
+<span class="px-2 py-1 bg-surface-container-high border border-outline-variant text-on-surface-variant rounded font-label-sm text-label-sm">Cluster B</span>
+</div>
+</div>
+<div class="flex-1 mt-md relative">
+<canvas class="w-full h-full" id="serverLoadChart"></canvas>
+<!-- Abstract overlay for premium feel -->
+<div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/40 to-transparent"></div>
+</div>
+</div>
+<!-- System Health Monitor -->
+<div class="glass-card p-lg flex flex-col gap-md">
+<h3 class="font-headline-md text-headline-md font-bold">System Health</h3>
+<div class="space-y-md">
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-xl border border-outline-variant/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+<span class="font-body-md text-body-md">API Gateway</span>
+</div>
+<span class="font-code text-code text-on-surface-variant">12ms latency</span>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-xl border border-outline-variant/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+<span class="font-body-md text-body-md">Compute Nodes</span>
+</div>
+<span class="font-code text-code text-on-surface-variant">42% utilized</span>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-xl border border-outline-variant/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+<span class="font-body-md text-body-md">Vector Database</span>
+</div>
+<span class="font-code text-code text-on-surface-variant">Healthy</span>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-low rounded-xl border border-outline-variant/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+<span class="font-body-md text-body-md">CDN Edge</span>
+</div>
+<span class="font-code text-code text-amber-500">Degraded</span>
+</div>
+</div>
+<div class="mt-auto">
+<button class="w-full py-2 text-primary font-label-md text-label-md hover:bg-primary/10 rounded-lg transition-colors border border-primary/20">View Detailed Logs</button>
+</div>
+</div>
+</div>
+<!-- Data Row -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Recent Organizations Table -->
+<div class="lg:col-span-8 glass-card overflow-hidden">
+<div class="p-lg flex items-center justify-between border-b border-outline-variant/30">
+<h3 class="font-headline-md text-headline-md font-bold">Recent Organizations</h3>
+<div class="flex gap-2">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">filter_list</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">more_vert</button>
+</div>
+</div>
+<table class="w-full text-left font-body-md text-body-md">
+<thead>
+<tr class="bg-surface-container/50 text-on-surface-variant border-b border-outline-variant/30">
+<th class="px-lg py-4 font-medium">Org Name</th>
+<th class="px-lg py-4 font-medium">Plan Type</th>
+<th class="px-lg py-4 font-medium">Status</th>
+<th class="px-lg py-4 font-medium">Last Activity</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs">V</div>
+<span>Vortex Systems</span>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="px-2 py-0.5 rounded-full bg-zinc-800 text-on-surface-variant font-label-sm text-label-sm border border-outline-variant">Enterprise</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2 text-emerald-400">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
+                                    </div>
+</td>
+<td class="px-lg py-4 text-on-surface-variant font-code text-xs">2 mins ago</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-xs">K</div>
+<span>Kinetix Bio</span>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="px-2 py-0.5 rounded-full bg-zinc-800 text-on-surface-variant font-label-sm text-label-sm border border-outline-variant">Scale</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2 text-emerald-400">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
+                                    </div>
+</td>
+<td class="px-lg py-4 text-on-surface-variant font-code text-xs">14 mins ago</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-xs">N</div>
+<span>Nebula Corp</span>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="px-2 py-0.5 rounded-full bg-zinc-800 text-on-surface-variant font-label-sm text-label-sm border border-outline-variant">Enterprise</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span> Suspended
+                                    </div>
+</td>
+<td class="px-lg py-4 text-on-surface-variant font-code text-xs">2 days ago</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">A</div>
+<span>Artemis AI</span>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="px-2 py-0.5 rounded-full bg-zinc-800 text-on-surface-variant font-label-sm text-label-sm border border-outline-variant">Scale</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2 text-emerald-400">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
+                                    </div>
+</td>
+<td class="px-lg py-4 text-on-surface-variant font-code text-xs">45 mins ago</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 border-t border-outline-variant/30 flex justify-center">
+<button class="text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md">View all 482 organizations</button>
+</div>
+</div>
+<!-- Audit Log Section -->
+<div class="lg:col-span-4 glass-card flex flex-col">
+<div class="p-lg border-b border-outline-variant/30 flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md font-bold">Audit Log</h3>
+<button class="text-xs text-primary hover:underline">View All</button>
+</div>
+<div class="flex-1 overflow-y-auto p-lg space-y-md max-h-[440px]">
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-0 w-[1px] bg-outline-variant/30"></div>
+<div class="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center z-10 shrink-0">
+<span class="material-symbols-outlined text-[14px] text-primary">security</span>
+</div>
+<div>
+<p class="text-body-md font-medium text-on-surface">Policy Update</p>
+<p class="text-body-md text-on-surface-variant mt-0.5">Admin changed auth protocols for <span class="text-on-surface">Vortex Systems</span>.</p>
+<p class="text-xs text-on-surface-variant/60 font-code mt-1">12:44 PM • J. Miller</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-0 w-[1px] bg-outline-variant/30"></div>
+<div class="w-6 h-6 rounded-full bg-secondary-container/20 border border-secondary/40 flex items-center justify-center z-10 shrink-0">
+<span class="material-symbols-outlined text-[14px] text-secondary">person_add</span>
+</div>
+<div>
+<p class="text-body-md font-medium text-on-surface">User Provisioned</p>
+<p class="text-body-md text-on-surface-variant mt-0.5">3 new seats added to <span class="text-on-surface">Artemis AI</span> Enterprise plan.</p>
+<p class="text-xs text-on-surface-variant/60 font-code mt-1">11:30 AM • System</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="absolute left-[11px] top-6 bottom-0 w-[1px] bg-outline-variant/30"></div>
+<div class="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center z-10 shrink-0">
+<span class="material-symbols-outlined text-[14px] text-red-400">warning</span>
+</div>
+<div>
+<p class="text-body-md font-medium text-on-surface">Access Denied</p>
+<p class="text-body-md text-on-surface-variant mt-0.5">Multiple failed login attempts detected on <span class="text-on-surface">Root Admin</span>.</p>
+<p class="text-xs text-on-surface-variant/60 font-code mt-1">10:05 AM • GuardRail</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center z-10 shrink-0">
+<span class="material-symbols-outlined text-[14px] text-primary">cloud_done</span>
+</div>
+<div>
+<p class="text-body-md font-medium text-on-surface">Cluster Snapshot</p>
+<p class="text-body-md text-on-surface-variant mt-0.5">Manual backup initiated for US-EAST-1 cluster nodes.</p>
+<p class="text-xs text-on-surface-variant/60 font-code mt-1">09:15 AM • R. Chen</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Server Load Mock Visualization
+        const canvas = document.getElementById('serverLoadChart');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            const resize = () => {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            };
+            window.addEventListener('resize', resize);
+            resize();
+
+            let points = Array.from({ length: 40 }, () => Math.random() * 50 + 20);
+            let time = 0;
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                time += 0.05;
+                points.shift();
+                points.push(40 + Math.sin(time) * 15 + Math.random() * 10);
+
+                const width = canvas.width;
+                const height = canvas.height;
+                const step = width / (points.length - 1);
+
+                // Draw Gradient Area
+                ctx.beginPath();
+                ctx.moveTo(0, height);
+                for (let i = 0; i < points.length; i++) {
+                    const x = i * step;
+                    const y = height - (points[i] / 100) * height;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width, height);
+                ctx.closePath();
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Draw Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < points.length; i++) {
+                    const x = i * step;
+                    const y = height - (points[i] / 100) * height;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Micro-interactions for buttons
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => {
+                btn.style.transform = 'scale(0.98)';
+            });
+            btn.addEventListener('mouseup', () => {
+                btn.style.transform = 'scale(1)';
+            });
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>

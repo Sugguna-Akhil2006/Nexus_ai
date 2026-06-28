@@ -32,14 +32,28 @@ class DBStorage:
         with self._singleton_lock:
             if getattr(self, "_initialized", False):
                 return
-            self.db_path = db_path
+            if db_path == ":memory:":
+                self.db_path = "file::memory:?cache=shared"
+                self._is_uri = True
+            else:
+                self.db_path = db_path
+                self._is_uri = False
             self._lock = threading.RLock()
+            if self._is_uri:
+                self._keep_alive = sqlite3.connect(self.db_path, uri=True)
             self._init_db()
             self._initialized = True
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        if getattr(self, "_is_uri", False):
+            conn = sqlite3.connect(self.db_path, uri=True, timeout=60.0)
+        else:
+            conn = sqlite3.connect(self.db_path, timeout=60.0)
         conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+        except Exception:
+            pass
         return conn
 
     def _init_db(self) -> None:
@@ -167,6 +181,94 @@ class DBStorage:
                 document_ids TEXT NOT NULL,
                 comparison_data TEXT NOT NULL,
                 created_at TEXT
+            )
+            """)
+
+            # Workflow Definitions Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_definitions (
+                definition_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                created_at TEXT
+            )
+            """)
+
+            # Drop old constraints if any
+            cursor.execute("DROP TABLE IF EXISTS workflow_steps")
+            cursor.execute("DROP TABLE IF EXISTS workflow_conditions")
+
+            # Workflow Steps Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_steps (
+                step_id TEXT,
+                definition_id TEXT,
+                name TEXT NOT NULL,
+                step_type TEXT NOT NULL,
+                config TEXT NOT NULL,
+                dependencies TEXT NOT NULL,
+                PRIMARY KEY (step_id, definition_id)
+            )
+            """)
+
+            # Workflow Conditions Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_conditions (
+                condition_id TEXT,
+                definition_id TEXT,
+                expression TEXT NOT NULL,
+                true_step_id TEXT NOT NULL,
+                false_step_id TEXT NOT NULL,
+                PRIMARY KEY (condition_id, definition_id)
+            )
+            """)
+
+            # Workflow Instances Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_instances (
+                instance_id TEXT PRIMARY KEY,
+                definition_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                step_statuses TEXT NOT NULL,
+                step_results TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                variables TEXT NOT NULL
+            )
+            """)
+
+            # Workflow Approvals Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_approvals (
+                approval_id TEXT PRIMARY KEY,
+                instance_id TEXT NOT NULL,
+                step_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                approver TEXT,
+                comments TEXT,
+                created_at TEXT,
+                decided_at TEXT
+            )
+            """)
+
+            # Workflow History Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_history (
+                history_id TEXT PRIMARY KEY,
+                instance_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                details TEXT,
+                timestamp TEXT NOT NULL
+            )
+            """)
+
+            # Workflow Schedules Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS workflow_schedules (
+                schedule_id TEXT PRIMARY KEY,
+                definition_id TEXT NOT NULL,
+                cron_expr TEXT NOT NULL,
+                next_run TEXT NOT NULL
             )
             """)
 
@@ -441,3 +543,215 @@ class DBStorage:
             row = cursor.fetchone()
             conn.close()
             return dict(row) if row else None
+
+    # Workflow operations
+    def create_workflow_definition(self, definition_id: str, name: str, description: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_definitions (definition_id, name, description, created_at) VALUES (?, ?, ?, ?)",
+                    (definition_id, name, description, datetime.utcnow().isoformat())
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def get_workflow_definition(self, definition_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_definitions WHERE definition_id = ?", (definition_id,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+            finally:
+                conn.close()
+
+    def create_workflow_step(self, step_id: str, definition_id: str, name: str, step_type: str, config: str, dependencies: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_steps (step_id, definition_id, name, step_type, config, dependencies) VALUES (?, ?, ?, ?, ?, ?)",
+                    (step_id, definition_id, name, step_type, config, dependencies)
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def list_workflow_steps(self, definition_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_steps WHERE definition_id = ?", (definition_id,))
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+            finally:
+                conn.close()
+
+    def create_workflow_condition(self, condition_id: str, definition_id: str, expression: str, true_step_id: str, false_step_id: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_conditions (condition_id, definition_id, expression, true_step_id, false_step_id) VALUES (?, ?, ?, ?, ?)",
+                    (condition_id, definition_id, expression, true_step_id, false_step_id)
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def list_workflow_conditions(self, definition_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_conditions WHERE definition_id = ?", (definition_id,))
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+            finally:
+                conn.close()
+
+    def create_workflow_instance(self, instance_id: str, definition_id: str, status: str, step_statuses: str, step_results: str, variables: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_instances (instance_id, definition_id, status, step_statuses, step_results, started_at, variables) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (instance_id, definition_id, status, step_statuses, step_results, datetime.utcnow().isoformat(), variables)
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def get_workflow_instance(self, instance_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_instances WHERE instance_id = ?", (instance_id,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+            finally:
+                conn.close()
+
+    def update_workflow_instance(self, instance_id: str, status: str, step_statuses: str, step_results: str, variables: str, completed: bool = False) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                if completed:
+                    cursor.execute(
+                        "UPDATE workflow_instances SET status = ?, step_statuses = ?, step_results = ?, variables = ?, completed_at = ? WHERE instance_id = ?",
+                        (status, step_statuses, step_results, variables, datetime.utcnow().isoformat(), instance_id)
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE workflow_instances SET status = ?, step_statuses = ?, step_results = ?, variables = ? WHERE instance_id = ?",
+                        (status, step_statuses, step_results, variables, instance_id)
+                    )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def create_workflow_approval(self, approval_id: str, instance_id: str, step_id: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_approvals (approval_id, instance_id, step_id, status, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (approval_id, instance_id, step_id, "PENDING", datetime.utcnow().isoformat())
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def update_workflow_approval(self, approval_id: str, status: str, approver: str, comments: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE workflow_approvals SET status = ?, approver = ?, comments = ?, decided_at = ? WHERE approval_id = ?",
+                    (status, approver, comments, datetime.utcnow().isoformat(), approval_id)
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def get_workflow_approval(self, approval_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_approvals WHERE approval_id = ?", (approval_id,))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+            finally:
+                conn.close()
+
+    def get_pending_workflow_approval(self, instance_id: str, step_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_approvals WHERE instance_id = ? AND step_id = ? AND status = 'PENDING'", (instance_id, step_id))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+            finally:
+                conn.close()
+
+    def create_workflow_history(self, history_id: str, instance_id: str, action: str, details: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_history (history_id, instance_id, action, details, timestamp) VALUES (?, ?, ?, ?, ?)",
+                    (history_id, instance_id, action, details, datetime.utcnow().isoformat())
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def list_workflow_history(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_history ORDER BY timestamp DESC")
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+            finally:
+                conn.close()
+
+    def create_workflow_schedule(self, schedule_id: str, definition_id: str, cron_expr: str, next_run: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO workflow_schedules (schedule_id, definition_id, cron_expr, next_run) VALUES (?, ?, ?, ?)",
+                    (schedule_id, definition_id, cron_expr, next_run)
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def list_workflow_schedules(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM workflow_schedules")
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+            finally:
+                conn.close()

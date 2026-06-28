@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus AI Developer Console</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090a0f;
+      --bg-surface: rgba(18, 20, 29, 0.7);
+      --bg-panel: rgba(28, 30, 43, 0.4);
+      --cyan: #00f0ff;
+      --purple: #bf55ec;
+      --green: #2ecc71;
+      --red: #e74c3c;
+      --text-main: #f0f3f8;
+      --text-mute: #8e9cae;
+      --border: rgba(255, 255, 255, 0.08);
+      --glow: rgba(0, 240, 255, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 10% 20%, rgba(191, 85, 236, 0.08) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(0, 240, 255, 0.06) 0%, transparent 40%);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header Styling */
+    header {
+      font-family: 'Outfit', sans-serif;
+      background: rgba(9, 10, 15, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      background: rgba(46, 204, 113, 0.1);
+      border: 1px solid rgba(46, 204, 113, 0.2);
+      color: var(--green);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    /* Main Container layout */
+    .container {
+      flex: 1;
+      display: flex;
+      height: calc(100vh - 70px - 200px); /* Subtract header and debug panel */
+    }
+
+    /* Sidebar Panel */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-surface);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-mute);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Workspace select styling */
+    .workspace-section select {
+      width: 100%;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 8px;
+      outline: none;
+      font-size: 14px;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .workspace-section select:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px var(--glow);
+    }
+
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(191, 85, 236, 0.15) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--text-main);
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      outline: none;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(191, 85, 236, 0.25) 100%);
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px var(--glow);
+    }
+
+    /* Upload box */
+    .upload-box {
+      border: 2px dashed var(--border);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: var(--bg-panel);
+    }
+
+    .upload-box:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.02);
+    }
+
+    .upload-box p {
+      font-size: 13px;
+      color: var(--text-mute);
+      margin-top: 8px;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* Lists styling */
+    .item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .item-list li {
+      background: var(--bg-panel);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .item-list li:hover {
+      border-color: var(--cyan);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .item-list li.active {
+      border-color: var(--purple);
+      background: rgba(191, 85, 236, 0.1);
+    }
+
+    .status-tag {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .status-tag.indexed {
+      background: rgba(46, 204, 113, 0.15);
+      color: var(--green);
+    }
+
+    .status-tag.pending {
+      background: rgba(231, 76, 60, 0.15);
+      color: var(--red);
+    }
+
+    /* Chat Area Layout */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(9, 10, 15, 0.4);
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 80%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .message.user {
+      align-self: flex-end;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+    }
+
+    .bubble {
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14.5px;
+      line-height: 1.5;
+    }
+
+    .message.user .bubble {
+      background: linear-gradient(135deg, #1b283d 0%, #111a29 100%);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      color: var(--text-main);
+      border-bottom-right-radius: 2px;
+    }
+
+    .message.assistant .bubble {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-bottom-left-radius: 2px;
+    }
+
+    .citations-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .citation-node {
+      font-size: 11px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: var(--cyan);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Chat Input Form */
+    .chat-input-area {
+      padding: 16px 24px;
+      background: rgba(9, 10, 15, 0.8);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .chat-input-area textarea {
+      flex: 1;
+      height: 50px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 14px;
+      font-size: 14.5px;
+      outline: none;
+      resize: none;
+      transition: all 0.3s;
+    }
+
+    .chat-input-area textarea:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px var(--glow);
+    }
+
+    .send-btn {
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+      border: none;
+      color: white;
+      padding: 0 20px;
+      height: 50px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .send-btn:hover {
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+    }
+
+    /* Debug Panel */
+    .debug-panel {
+      height: 200px;
+      background: rgba(18, 20, 29, 0.95);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .debug-header {
+      background: rgba(9, 10, 15, 0.6);
+      padding: 10px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .debug-header h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+
+    .debug-grid {
+      flex: 1;
+      padding: 15px 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      overflow-y: auto;
+    }
+
+    .debug-card {
+      background: rgba(28, 30, 43, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .debug-card span.label {
+      font-size: 11px;
+      color: var(--text-mute);
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .debug-card span.value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .chunks-list {
+      grid-column: span 4;
+      background: rgba(9, 10, 15, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-mute);
+      max-height: 80px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <h1>NEXUS AI DEVELOPER CONSOLE</h1>
+      <div id="connection-status" class="status-badge">
+        <div class="status-dot"></div>
+        <span>CONNECTING</span>
+      </div>
+    </div>
+    <div style="font-size: 12px; color: var(--text-mute);" id="active-agents-badge">
+      Agents: Doc | Embed | Search | Chat (Active)
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      
+      <!-- Workspace switch -->
+      <div class="workspace-section">
+        <div class="section-title">Workspace</div>
+        <select id="workspace-select" onchange="onWorkspaceChange()">
+          <!-- Populated dynamically -->
+        </select>
+        <button class="btn" onclick="createWorkspace()">+ Create Workspace</button>
+      </div>
+
+      <!-- Ingest Document -->
+      <div>
+        <div class="section-title">Ingest Document</div>
+        <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+          <svg style="width: 24px; height: 24px; fill: var(--text-mute);" viewBox="0 0 24 24">
+            <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+          </svg>
+          <p>Drag & Drop or Click to Ingest</p>
+          <input type="file" id="fileInput" class="file-input" onchange="uploadFile(this.files[0])">
+        </div>
+      </div>
+
+      <!-- Loaded Documents list -->
+      <div>
+        <div class="section-title">Documents</div>
+        <ul id="documents-list" class="item-list">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+
+      <!-- History -->
+      <div>
+        <div class="section-title">Conversation History</div>
+        <ul id="conversations-list" class="item-list">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-container">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message assistant">
+          <div class="bubble">
+            Welcome to the Nexus AI Developer Console. Select or create a workspace to begin testing document search and streaming conversations.
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chatInput" placeholder="Ask questions or type a general query..."></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Debug Panel -->
+  <div class="debug-panel">
+    <div class="debug-header">
+      <h3>Developer Panel (Real-Time Metrics)</h3>
+      <div style="font-size: 11px; color: var(--cyan);" id="active-workflow-lbl">Workflow: General Chat</div>
+    </div>
+    <div class="debug-grid">
+      <div class="debug-card">
+        <span class="label">Active Agent</span>
+        <span class="value" id="debug-agent">ChatAgent</span>
+      </div>
+      <div class="debug-card">
+        <span class="label">Model Provider</span>
+        <span class="value" id="debug-provider">ollama</span>
+      </div>
+      <div class="debug-card">
+        <span class="label">Documents Loaded</span>
+        <span class="value" id="debug-docs-count">0</span>
+      </div>
+      <div class="debug-card">
+        <span class="label">Prompt / Context Length</span>
+        <span class="value" id="debug-lengths">0 / 0</span>
+      </div>
+      <div class="chunks-list" id="debug-chunks">
+        No vector search snippets retrieved for the last message.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+    const WS_BASE = "ws://127.0.0.1:8000";
+
+    let currentWorkspaceId = "";
+    let currentConversationId = "";
+    let ws = null;
+
+    // Check health on start
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${API_BASE}/api/health`);
+        const data = await res.json();
+        if (data.status === "healthy") {
+          document.getElementById("connection-status").innerHTML = `<div class="status-dot"></div><span>ONLINE</span>`;
+          document.getElementById("connection-status").className = "status-badge";
+        }
+      } catch (e) {
+        document.getElementById("connection-status").innerHTML = `<div class="status-dot" style="background-color: var(--red); box-shadow: 0 0 8px var(--red);"></div><span>OFFLINE</span>`;
+        document.getElementById("connection-status").style.color = "var(--red)";
+        document.getElementById("connection-status").style.borderColor = "rgba(231, 76, 60, 0.2)";
+      }
+    }
+
+    // Load Workspaces list
+    async function loadWorkspaces() {
+      try {
+        const res = await fetch(`${API_BASE}/api/workspaces`);
+        const data = await res.json();
+        const select = document.getElementById("workspace-select");
+        select.innerHTML = "";
+        
+        if (data.workspaces && data.workspaces.length > 0) {
+          data.workspaces.forEach(w => {
+            const opt = document.createElement("option");
+            opt.value = w.workspace_id;
+            opt.textContent = w.name;
+            select.appendChild(opt);
+          });
+          currentWorkspaceId = data.workspaces[0].workspace_id;
+          loadWorkspaceData();
+        } else {
+          // Auto create a default workspace
+          await createWorkspace("Default Workspace");
+        }
+      } catch (e) {}
+    }
+
+    // Create Workspace
+    async function createWorkspace(name = "") {
+      const wName = name || prompt("Enter new workspace name:");
+      if (!wName) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/workspaces`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: wName })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          await loadWorkspaces();
+        }
+      } catch (e) {}
+    }
+
+    function onWorkspaceChange() {
+      currentWorkspaceId = document.getElementById("workspace-select").value;
+      loadWorkspaceData();
+    }
+
+    // Load documents & conversations history for the workspace
+    async function loadWorkspaceData() {
+      if (!currentWorkspaceId) return;
+      loadDocuments();
+      loadConversations();
+    }
+
+    // Load documents
+    async function loadDocuments() {
+      try {
+        const res = await fetch(`${API_BASE}/api/documents?workspace_id=${currentWorkspaceId}`);
+        const data = await res.json();
+        const list = document.getElementById("documents-list");
+        list.innerHTML = "";
+        
+        document.getElementById("debug-docs-count").textContent = data.documents.length;
+
+        if (data.documents.length === 0) {
+          list.innerHTML = `<li style="color: var(--text-mute); font-style: italic; border: none; background: none; cursor: default;">No documents loaded.</li>`;
+          return;
+        }
+
+        data.documents.forEach(d => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <span>${d.name}</span>
+            <span class="status-tag ${d.status}">${d.status}</span>
+          `;
+          list.appendChild(li);
+        });
+      } catch (e) {}
+    }
+
+    // Load past conversations history
+    async function loadConversations() {
+      try {
+        const res = await fetch(`${API_BASE}/api/conversations?workspace_id=${currentWorkspaceId}`);
+        const data = await res.json();
+        const list = document.getElementById("conversations-list");
+        list.innerHTML = "";
+
+        if (data.conversations.length === 0) {
+          list.innerHTML = `<li style="color: var(--text-mute); font-style: italic; border: none; background: none; cursor: default;">No history yet.</li>`;
+          return;
+        }
+
+        data.conversations.forEach(c => {
+          const li = document.createElement("li");
+          li.textContent = c.title;
+          if (c.conversation_id === currentConversationId) {
+            li.className = "active";
+          }
+          li.onclick = () => selectConversation(c.conversation_id);
+          list.appendChild(li);
+        });
+      } catch (e) {}
+    }
+
+    // Select and load conversation history
+    async function selectConversation(convId) {
+      currentConversationId = convId;
+      loadConversations();
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/conversations/${convId}/messages`);
+        const data = await res.json();
+        const container = document.getElementById("chatMessages");
+        container.innerHTML = "";
+
+        data.messages.forEach(m => {
+          appendMessageBubble(m.role, m.content);
+        });
+      } catch (e) {}
+    }
+
+    // Upload Document file
+    async function uploadFile(file) {
+      if (!file || !currentWorkspaceId) return;
+
+      const fd = new FormData();
+      fd.append("file", file);
+
+      try {
+        const statusLi = document.createElement("li");
+        statusLi.innerHTML = `<span>Uploading ${file.name}...</span><span class="status-tag pending">uploading</span>`;
+        document.getElementById("documents-list").appendChild(statusLi);
+
+        const res = await fetch(`${API_BASE}/api/documents/upload?workspace_id=${currentWorkspaceId}`, {
+          method: "POST",
+          body: fd
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+          await loadDocuments();
+        }
+      } catch (e) {
+        alert("Upload failed.");
+        await loadDocuments();
+      }
+    }
+
+    // Helper: append bubble
+    function appendMessageBubble(role, content) {
+      const container = document.getElementById("chatMessages");
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `message ${role}`;
+      msgDiv.innerHTML = `<div class="bubble">${content}</div>`;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+      return msgDiv;
+    }
+
+    // Connect WebSocket and send message
+    function sendMessage() {
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text || !currentWorkspaceId) return;
+
+      // Append user bubble
+      appendMessageBubble("user", text);
+      input.value = "";
+
+      // Create assistant placeholder bubble
+      const assistantMsg = appendMessageBubble("assistant", "...");
+      const bubble = assistantMsg.querySelector(".bubble");
+
+      // Setup WS connection
+      ws = new WebSocket(`${WS_BASE}/api/chat/ws`);
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          action: "send_message",
+          workspace_id: currentWorkspaceId,
+          conversation_id: currentConversationId,
+          message: text
+        }));
+        bubble.textContent = "";
+      };
+
+      ws.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        
+        if (payload.token) {
+          bubble.textContent += payload.token;
+          if (payload.conversation_id) {
+            currentConversationId = payload.conversation_id;
+          }
+        }
+        
+        // Handle metadata payload
+        if (payload.metadata) {
+          const meta = payload.metadata;
+          document.getElementById("debug-agent").textContent = meta.active_agent;
+          document.getElementById("debug-provider").textContent = meta.selected_provider;
+          document.getElementById("debug-lengths").textContent = `${meta.prompt_length} / ${meta.context_size}`;
+          document.getElementById("active-workflow-lbl").textContent = `Workflow: ${meta.current_workflow} | Response: ${meta.response_time}`;
+          
+          const chunksBox = document.getElementById("debug-chunks");
+          chunksBox.innerHTML = "";
+          if (meta.retrieved_chunks && meta.retrieved_chunks.length > 0) {
+            chunksBox.innerHTML = "<strong>Retrieved Chunks:</strong><br>";
+            meta.retrieved_chunks.forEach((chunk, i) => {
+              chunksBox.innerHTML += `${i+1}. ${chunk.content} (Score: ${chunk.score})<br>`;
+            });
+          } else {
+            chunksBox.textContent = "No vector search snippets retrieved for the last message.";
+          }
+          
+          // Reload history lists
+          loadConversations();
+        }
+      };
+
+      ws.onerror = (e) => {
+        bubble.textContent = "Error communicating with the chat agent.";
+      };
+    }
+
+    // Bootstrap Console dashboard
+    checkHealth();
+    loadWorkspaces();
+  </script>
+</body>
+</html>

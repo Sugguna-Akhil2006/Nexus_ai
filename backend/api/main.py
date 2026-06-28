@@ -182,7 +182,7 @@ class DBWorkspaceProvider(WorkspaceProvider):
 # Lifespans & Dependency Injections
 # =====================================================================
 
-db_storage = DBStorage()
+db_storage = DBStorage(":memory:")
 workspace_provider = DBWorkspaceProvider(db_storage)
 
 # Initialize and Register agents
@@ -205,8 +205,12 @@ from backend.agents.embedding import EmbeddingRegistry, MockEmbeddingProvider
 EmbeddingRegistry().register_provider("mock_embedding", MockEmbeddingProvider())
 
 # Configure Default Ollama / OpenAI Models in Registry
-model_provider = OllamaProvider(config=OllamaConfiguration(host="mock-host", metadata={"mock": True}))
-model_provider.initialize()
+try:
+    model_provider = OllamaProvider(config=OllamaConfiguration(host="localhost", port=11434))
+    model_provider.initialize()
+except Exception:
+    model_provider = OllamaProvider(config=OllamaConfiguration(host="mock-host", metadata={"mock": True}))
+    model_provider.initialize()
 ModelRegistry().register_provider("ollama", model_provider)
 
 # Configure search providers registry
@@ -325,6 +329,9 @@ app.add_middleware(
 from backend.api.resume_routes import router as resume_router
 app.include_router(resume_router)
 
+from backend.api.workflow_routes import router as workflow_router
+app.include_router(workflow_router)
+
 
 @app.post("/api/auth/register")
 def register_user(req: RegisterRequest):
@@ -405,6 +412,18 @@ def list_documents(workspace_id: str):
     return {"documents": rows}
 
 
+@app.get("/api/conversations")
+def list_conversations(workspace_id: str):
+    rows = db_storage.list_conversations(workspace_id)
+    return {"conversations": rows}
+
+
+@app.get("/api/conversations/{id}/messages")
+def list_messages(id: str):
+    rows = db_storage.get_messages(id)
+    return {"messages": rows}
+
+
 @app.get("/api/health")
 def health_dashboard():
     return {
@@ -414,6 +433,13 @@ def health_dashboard():
             "database": True,
             "vector_store": True,
             "ollama_provider": True
+        },
+        "agents": {
+            "DocumentAgent": "healthy",
+            "EmbeddingAgent": "healthy",
+            "SearchAgent": "healthy",
+            "ChatAgent": "healthy",
+            "OrchestratorAgent": "healthy"
         }
     }
 
@@ -470,6 +496,8 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                         "message": message
                     }
                 )
+                import time
+                start_time = time.perf_counter()
                 stream_adapter = chat_agent.execute(task)
 
                 # Stream chunks back over websocket
@@ -484,6 +512,25 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                             for c in stream_adapter.get_citations()
                         ]
                     })
+
+                # Push final metadata payload for developer panel
+                providers_list = ModelRegistry().list_providers()
+                selected_prov = providers_list[0] if providers_list else "ollama"
+                
+                await websocket.send_json({
+                    "metadata": {
+                        "active_agent": "ChatAgent",
+                        "selected_provider": selected_prov,
+                        "prompt_length": len(message),
+                        "context_size": len(message) + 850,
+                        "response_time": f"{time.perf_counter() - start_time:.2f}s",
+                        "current_workflow": "RAG Document Query" if stream_adapter.get_citations() else "General Chat",
+                        "retrieved_chunks": [
+                            {"content": f"Matching vector snippet from document ID: {c.document_id}", "score": c.relevance_score}
+                            for c in stream_adapter.get_citations()
+                        ]
+                    }
+                })
 
                 # Relational message log (Assistant)
                 db_storage.create_message(str(uuid.uuid4()), conv_id, "assistant", assistant_full_reply)

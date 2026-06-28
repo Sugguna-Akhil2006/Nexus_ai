@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus AI | Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-Regular.woff2') format('woff2');
+        }
+        @font-face {
+            font-family: 'Geist';
+            font-weight: 600;
+            src: url('https://cdn.jsdelivr.net/npm/geist@1.0.3/dist/fonts/geist-sans/Geist-SemiBold.woff2') format('woff2');
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #e5e1e4;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .geist-mono { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .glass-card:hover {
+            border-color: #3f3f46;
+        }
+        .chart-gradient {
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 100%);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#2a2a2c",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-container-highest": "#353437",
+                        "secondary": "#b1c6f9",
+                        "outline-variant": "#424754",
+                        "surface-tint": "#adc6ff",
+                        "surface-bright": "#39393b",
+                        "tertiary-fixed": "#ffdcc6",
+                        "inverse-surface": "#e5e1e4",
+                        "on-primary-container": "#00285d",
+                        "on-primary": "#002e6a",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#d8e2ff",
+                        "secondary-fixed": "#d8e2ff",
+                        "primary-container": "#4d8eff",
+                        "inverse-on-surface": "#313032",
+                        "background": "#131315",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "surface-container-low": "#1c1b1d",
+                        "on-secondary-container": "#9fb5e7",
+                        "on-background": "#e5e1e4",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "on-tertiary-container": "#461f00",
+                        "on-secondary": "#182f59",
+                        "surface-variant": "#353437",
+                        "surface-dim": "#131315",
+                        "surface-container": "#201f22",
+                        "on-secondary-fixed": "#001a42",
+                        "surface-container-lowest": "#0e0e10",
+                        "secondary-container": "#304671",
+                        "error-container": "#93000a",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#df7412",
+                        "on-primary-fixed": "#001a42",
+                        "outline": "#8c909f",
+                        "on-surface": "#e5e1e4",
+                        "on-secondary-fixed-variant": "#304671",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-tertiary-fixed": "#311400",
+                        "on-tertiary": "#502400",
+                        "tertiary": "#ffb786",
+                        "on-error": "#690005",
+                        "primary": "#adc6ff",
+                        "surface": "#131315",
+                        "on-primary-fixed-variant": "#004395",
+                        "inverse-primary": "#005ac2"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "2xl": "48px",
+                        "lg": "24px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "container-max": "1280px",
+                        "unit": "8px",
+                        "3xl": "64px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Geist"],
+                        "label-md": ["Geist"],
+                        "body-lg": ["Inter"],
+                        "code": ["jetbrainsMono"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "label-md": ["14px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "1.6", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "code": ["13px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar Shell -->
+<aside class="flex flex-col h-full p-md h-screen w-64 fixed left-0 top-0 border-r border-outline-variant bg-surface z-50">
+<div class="mb-lg px-2">
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Nexus AI</h1>
+<p class="font-label-sm text-on-surface-variant">Enterprise Workspace</p>
+</div>
+<button class="mb-xl flex items-center justify-center gap-2 bg-primary-container text-on-primary-container px-md py-sm rounded-lg font-bold active:scale-95 transition-transform">
+<span class="material-symbols-outlined">add</span>
+            New Project
+        </button>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-body-md text-body-md">Chat</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">Documents</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-body-md text-body-md">Agents</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-body-md text-body-md">Marketplace</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-md">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-body-md text-body-md">Account</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- TopNavBar Shell -->
+<header class="sticky top-0 w-full z-40 flex items-center justify-between px-gutter h-16 bg-surface/70 backdrop-blur-md border-b border-outline-variant">
+<div class="flex items-center gap-lg">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-1.5 pl-10 pr-4 text-label-md font-label-md focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Search resources, projects..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer p-2">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer p-2">help</button>
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Close-up professional portrait of a tech-focused digital avatar, featuring a clean minimalist aesthetic, neutral lighting, and a sharp focus. The avatar is set against a dark, monochromatic zinc-900 background, reflecting the premium minimalist brand identity of Nexus AI with soft ambient shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe2ZCVRRgPMV_OL28SuyCUfaKsYs2ONyTWfUYcYF1ABNRdAGrl9X9WKFeg-PeLi6NcvZob8twcHzHdWZBFs7-EDIecW1Dl8JY_CvvRC96UE0URLaZkAbgQPt860JzEdGJJbglxJWvQ4CVoDbmjCmZRDavv5qSR0AXysa_4OB6t9zUv0GGAEGZhuucDwF8jFkD5K5vg3w1a-Us3I47HaCaoQoCAFl5FzVtU-eizBBHtz4zFO8WZHJyh7LKkuVDWBTLNKkCMVpvbmCAj"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-lg space-y-lg">
+<!-- Dashboard Header Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-green-500/10 text-green-400 text-label-sm font-label-sm border border-green-500/20">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                            System Online
+                        </span>
+</div>
+<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">Dashboard Overview</h2>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-2 bg-surface-container border border-outline-variant rounded-lg text-label-md font-label-md hover:bg-surface-container-highest transition-colors">Export Report</button>
+<button class="px-md py-2 bg-primary text-on-primary-fixed-variant rounded-lg text-label-md font-label-md font-bold active:scale-95 transition-transform">Update Clusters</button>
+</div>
+</section>
+<!-- Main Grid -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Inference Loads Chart -->
+<div class="col-span-12 lg:col-span-8 glass-card p-lg rounded-xl flex flex-col gap-lg">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md">Inference Loads</h3>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="text-label-sm text-on-surface-variant uppercase">Model-A (GPT-X)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-secondary"></span>
+<span class="text-label-sm text-on-surface-variant uppercase">Model-B (Nexus-7)</span>
+</div>
+</div>
+</div>
+<!-- Simplified Visual Representation of a Line Chart -->
+<div class="relative h-64 w-full border-b border-l border-outline-variant flex items-end">
+<div class="absolute inset-0 chart-gradient"></div>
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 800 200">
+<!-- Background Grid -->
+<line stroke="#27272a" stroke-width="1" x1="0" x2="800" y1="50" y2="50"></line>
+<line stroke="#27272a" stroke-width="1" x1="0" x2="800" y1="100" y2="100"></line>
+<line stroke="#27272a" stroke-width="1" x1="0" x2="800" y1="150" y2="150"></line>
+<!-- Area/Line Chart Primary -->
+<path d="M0,150 Q100,80 200,120 T400,60 T600,100 T800,40 V200 H0 Z" fill="rgba(59, 130, 246, 0.1)"></path>
+<path d="M0,150 Q100,80 200,120 T400,60 T600,100 T800,40" fill="none" stroke="#3b82f6" stroke-width="3"></path>
+<!-- Secondary Line -->
+<path d="M0,180 Q150,140 300,160 T600,120 T800,150" fill="none" stroke="#adc6ff" stroke-dasharray="5,5" stroke-width="2"></path>
+</svg>
+<!-- X-Axis Labels -->
+<div class="absolute -bottom-6 w-full flex justify-between text-label-sm text-on-surface-variant px-2">
+<span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span>
+</div>
+</div>
+</div>
+<!-- Live Activity Feed -->
+<div class="col-span-12 lg:col-span-4 glass-card p-lg rounded-xl flex flex-col gap-md">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-headline-md text-headline-md">Live Activity</h3>
+<span class="material-symbols-outlined text-on-surface-variant">more_horiz</span>
+</div>
+<div class="space-y-4 overflow-y-auto max-h-[300px] pr-2">
+<div class="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">sync</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface">Dataset synchronized</span>
+<span class="text-label-sm text-on-surface-variant">Shard-11 (Quantum-Link) verified</span>
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-1 geist-mono">Just now</span>
+</div>
+</div>
+<div class="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant">
+<div class="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-green-400">verified_user</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface">Security audit completed</span>
+<span class="text-label-sm text-on-surface-variant">All 14 endpoints secure</span>
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-1 geist-mono">12m ago</span>
+</div>
+</div>
+<div class="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">terminal</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface">Deployment successful</span>
+<span class="text-label-sm text-on-surface-variant">Core-Sync 2.0 v1.4.2 production</span>
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-1 geist-mono">45m ago</span>
+</div>
+</div>
+<div class="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant">
+<div class="w-10 h-10 rounded-full bg-error-container/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-error">warning</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface">High latency detected</span>
+<span class="text-label-sm text-on-surface-variant">Node US-West-2 spike (+230ms)</span>
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-1 geist-mono">1h ago</span>
+</div>
+</div>
+</div>
+<button class="w-full py-2 text-label-md text-primary font-bold hover:bg-primary/5 rounded-lg transition-colors mt-2">View System Logs</button>
+</div>
+<!-- Active Projects Section -->
+<div class="col-span-12 space-y-md">
+<h3 class="font-headline-md text-headline-md">Active Projects</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+<!-- Project Card 1 -->
+<div class="glass-card p-lg rounded-xl flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">hub</span>
+</div>
+<span class="text-label-sm font-label-sm text-primary uppercase geist-mono">In Progress</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md mb-1">Project Quantum-Link</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Decentralized token bridge for multi-agent synchronization.</p>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between text-label-sm">
+<span class="text-on-surface-variant">Progress</span>
+<span class="text-on-surface">84%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up professional portrait of a tech designer, minimalist aesthetic, warm soft lighting, neutral background, 8k resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbr9guC61fiUJeD9Xl4Rj2K2COicq9oILTpOuLicDl0fZT-LW7zHHMa0DmF3nf0mx53QYwDf7QJAPBH0wLWmvTjyEs98DxiXtowyXhFnn8dwhIaaa_Ku72pQRHyMxSsk14lAq3sJwega8kIfJatmMGLgWHFdJ4fw6in1BJKEnusJgVr7mNLcBHbtix11PTjD4LIFc8F8WqkoQkssm3IWd7K4_euEesvkfi7mh7a4XNi_eTbGDkEtU6ZV4PaVM8gTjA2jXzgiSw7P0X"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a female systems engineer, clinical lighting, high contrast, minimalist setting, dark clothing, hyper-realistic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3MoYSYYxljBKeD1LPVnMlh1GRqzGT-0TPiEk3dCPcouz2FfLQuitJSbZKDvMjXQOq6ixjnsbx3l6hsfJPOLv7ciaUzn_PmDfvXonTcwEVmgTmLR9l6WxXgtyheASMa1QK2InnI3L65Q-hJ3D98-0uWyJcz3Jd5WgFn4Liy-Z9p6RG5ax7_p1wL6lvGKnoPQYRIOcpzEJlr9oV5R0yjunh8FVal9HJ8OFI8OFcGupCvATsxR0l_A2pPwP8DZPp-1sIRLeuZiI65wJh"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container flex items-center justify-center text-[10px] font-bold text-on-surface-variant">+3</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">arrow_forward</button>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="glass-card p-lg rounded-xl flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg bg-secondary-container/50 border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">security</span>
+</div>
+<span class="text-label-sm font-label-sm text-secondary uppercase geist-mono">Staging</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md mb-1">Vanguard Guardrail</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Real-time prompt injection prevention and LLM safety layer.</p>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between text-label-sm">
+<span class="text-on-surface-variant">Progress</span>
+<span class="text-on-surface">42%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[42%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a developer in a dark hoodie, futuristic lighting with blue highlights, minimalist workspace background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN4AjYH9VxqqekSZR46EWARGDW7GMXN34fjzzmPJY-B4sW93NZW3_bKE8rk8GH6Z7bRoipIGJbgqN0vtzn7xAgoHQTc6JtG3CQCfDiA9neEXuu28xGxc7wL6j9Kf9h9i4MR4U2WvxAjh9HSw6td40xcVWZ9XzdCZ2rtAJ9ktBeZegNm95Es4QadiRmjLDzYdu7-cEyX3PmeaeSC_AnC0mw4FYBiPbd4et2dqdo-rGQFmI6NeZ8QujR__Aq0aj-E6wcGGvHPbx8gVEE"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container flex items-center justify-center text-[10px] font-bold text-on-surface-variant">+1</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">arrow_forward</button>
+</div>
+</div>
+<!-- Project Card 3 -->
+<div class="glass-card p-lg rounded-xl flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg bg-primary-container/30 border border-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">cloud_sync</span>
+</div>
+<span class="text-label-sm font-label-sm text-green-400 uppercase geist-mono">Active</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md mb-1">Core-Sync 2.0</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Unified vector embedding pipeline for global agent clusters.</p>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between text-label-sm">
+<span class="text-on-surface-variant">Progress</span>
+<span class="text-on-surface">96%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[96%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A bright, minimalist headshot of a software architect, neutral gray backdrop, professional corporate tech photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvD0kvr7FE7QIJRQL9HZs04p8yaOCCyuEkJznFj0H2CiDuOh3ohnA9hKPU5n9MyCu5fVwuIsnK-pP7LCR-PvBdz3mAE2Qrmm1bX6Lwps43Uv4sL1JMbXRAf-DvOTTEiFmWPC0izk3h7-lQdyZ4GXU-s5YnVt-Uz1-AGJon-RJujjlCeVAEZvrDaqW1Q_x7poDkUXefQ_JgndojkCTwKAXQRIbCicPkaSffJNHeNnGYL0iilkCifS9fCc1VWcCXWtGa6fht0BuS6qKJ"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional portrait of a machine learning engineer, dark minimalist aesthetic, sharp focus, vibrant blue accent lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADTWQkJyCrcBfNzLgWua8xU-wSLoS4mBRmPJAOkXXNiI6psySgLavV1ddMecybd-7q9elRbTlwmWxlKjxr3FHHT5xYSlyrbidFLE16_NS6iaqQrVs70eGO2g95M6_PkS2khQZXIMjMIH70Oaj8Q08rqOzH0F8RmXifQLnBBLi0KiNCdfvzLcTaug8Nx4WKOWgxJmqKpcqTiD2huFl4At0iXjGJeXgJ8sCjRqtnJOVd3Ppku0_QYohGZpctB_esvM7LgXuueGefuPN0"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Modern high-resolution portrait of a technical project manager, minimalist attire, soft ambient lighting, high contrast style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEnZ2U0S7-nMI81nD33xTVKwg57UfvPrDUZUI5BNnA7MfYHooLqhTbejOGaSkmiGzN7wb9mV2lEhKtJ-48IPOno1WR8NuS5PZV7I2R226SZaCsHjXXS5vz9tbSBvyid-6MkDeFAE0kYYvXzSjNcWQf3DFGDqGz4ADbfSiaGDP3OsNkh0EmvpOqwVCf9v5BPx_MxrRGU1ncbF7JiovX7TgfKygx0a6jFTk5svBGlvAeg8ISiq3YR_i4uzjHEZVIsMyyHMHql5ESvtr5"/>
+</div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container flex items-center justify-center text-[10px] font-bold text-on-surface-variant">+8</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">arrow_forward</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Metrics -->
+<div class="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-lg pt-md">
+<div class="glass-card p-md rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">memory</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-wide">Compute Usage</span>
+<span class="font-headline-md text-headline-md font-bold geist-mono">84.2 TFlops</span>
+</div>
+</div>
+<div class="glass-card p-md rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">database</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-wide">Storage Index</span>
+<span class="font-headline-md text-headline-md font-bold geist-mono">1.2 PB</span>
+</div>
+</div>
+<div class="glass-card p-md rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">group</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-wide">Active Agents</span>
+<span class="font-headline-md text-headline-md font-bold geist-mono">12 <span class="text-green-400 text-label-md font-normal ml-1">online</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Branding -->
+<footer class="px-gutter py-xl mt-lg border-t border-outline-variant flex justify-between items-center text-on-surface-variant">
+<span class="text-label-sm">© 2024 Nexus AI Enterprise</span>
+<div class="flex gap-xl text-label-sm">
+<a class="hover:text-on-surface transition-colors" href="#">API Docs</a>
+<a class="hover:text-on-surface transition-colors" href="#">System Status</a>
+<a class="hover:text-on-surface transition-colors" href="#">Support</a>
+</div>
+</footer>
+</main>
+<!-- Contextual FAB (Hidden by default unless relevant, here it could be "New Project") -->
+<button class="fixed bottom-lg right-lg h-14 w-14 rounded-full bg-primary text-on-primary-fixed-variant shadow-xl flex items-center justify-center active:scale-90 transition-all z-50 md:hidden">
+<span class="material-symbols-outlined">add</span>
+</button>
+<script>
+        // Micro-interaction for project card hover effects
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Simple interactive update simulation for the status badge
+        setInterval(() => {
+            const badge = document.querySelector('.animate-pulse');
+            if (badge) {
+                badge.style.opacity = badge.style.opacity === '0.5' ? '1' : '0.5';
+            }
+        }, 1000);
+    </script>
+</body></html>
