@@ -545,5 +545,7 @@ async def websocket_chat_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         await websocket.send_json({"error": str(e)})
         await websocket.close()

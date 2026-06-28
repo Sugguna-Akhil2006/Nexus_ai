@@ -743,6 +743,12 @@
       ws.onmessage = (event) => {
         const payload = JSON.parse(event.data);
         
+        if (payload.error) {
+          bubble.textContent = "Error: " + payload.error;
+          bubble.style.color = "var(--red)";
+          return;
+        }
+        
         if (payload.token) {
           bubble.textContent += payload.token;
           if (payload.conversation_id) {
