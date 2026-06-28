@@ -113,6 +113,63 @@ class DBStorage:
             )
             """)
 
+            # Resumes Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS resumes (
+                document_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                name TEXT,
+                email TEXT,
+                phone TEXT,
+                location TEXT,
+                linkedin TEXT,
+                github TEXT,
+                portfolio TEXT,
+                education TEXT,
+                certifications TEXT,
+                skills TEXT,
+                languages TEXT,
+                experience TEXT,
+                projects TEXT,
+                publications TEXT,
+                awards TEXT,
+                created_at TEXT
+            )
+            """)
+
+            # Resume Analysis History Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS resume_analysis_history (
+                analysis_id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                workspace_id TEXT NOT NULL,
+                report_data TEXT NOT NULL,
+                created_at TEXT
+            )
+            """)
+
+            # ATS Reports Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ats_reports (
+                ats_id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                report_data TEXT NOT NULL,
+                created_at TEXT
+            )
+            """)
+
+            # Resume Comparison History Table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS resume_comparison_history (
+                comparison_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                document_ids TEXT NOT NULL,
+                comparison_data TEXT NOT NULL,
+                created_at TEXT
+            )
+            """)
+
             # Seed default admin user if it does not exist
             cursor.execute(
                 "INSERT OR IGNORE INTO users (username, password_hash, email, role, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -264,3 +321,123 @@ class DBStorage:
             rows = cursor.fetchall()
             conn.close()
             return [dict(r) for r in rows]
+
+    # Resume operations
+    def create_resume_metadata(
+        self,
+        document_id: str,
+        workspace_id: str,
+        name: str = "",
+        email: str = "",
+        phone: str = "",
+        location: str = "",
+        linkedin: str = "",
+        github: str = "",
+        portfolio: str = "",
+        education: str = "[]",
+        certifications: str = "[]",
+        skills: str = "[]",
+        languages: str = "[]",
+        experience: str = "[]",
+        projects: str = "[]",
+        publications: str = "[]",
+        awards: str = "[]"
+    ) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO resumes (
+                    document_id, workspace_id, name, email, phone, location,
+                    linkedin, github, portfolio, education, certifications,
+                    skills, languages, experience, projects, publications, awards, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    document_id, workspace_id, name, email, phone, location,
+                    linkedin, github, portfolio, education, certifications,
+                    skills, languages, experience, projects, publications, awards,
+                    datetime.utcnow().isoformat()
+                )
+            )
+            conn.commit()
+            conn.close()
+
+    def get_resume_metadata(self, document_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM resumes WHERE document_id = ?", (document_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+    def create_analysis_report(self, analysis_id: str, document_id: str, workspace_id: str, report_data: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO resume_analysis_history (analysis_id, document_id, workspace_id, report_data, created_at) VALUES (?, ?, ?, ?, ?)",
+                (analysis_id, document_id, workspace_id, report_data, datetime.utcnow().isoformat())
+            )
+            conn.commit()
+            conn.close()
+
+    def get_analysis_report(self, analysis_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM resume_analysis_history WHERE analysis_id = ?", (analysis_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+    def create_ats_report(self, ats_id: str, document_id: str, score: int, report_data: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO ats_reports (ats_id, document_id, score, report_data, created_at) VALUES (?, ?, ?, ?, ?)",
+                (ats_id, document_id, score, report_data, datetime.utcnow().isoformat())
+            )
+            conn.commit()
+            conn.close()
+
+    def get_ats_report(self, ats_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ats_reports WHERE ats_id = ?", (ats_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+    def get_ats_report_by_doc(self, document_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ats_reports WHERE document_id = ? ORDER BY created_at DESC LIMIT 1", (document_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+
+    def create_comparison_history(self, comparison_id: str, workspace_id: str, document_ids: str, comparison_data: str) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO resume_comparison_history (comparison_id, workspace_id, document_ids, comparison_data, created_at) VALUES (?, ?, ?, ?, ?)",
+                (comparison_id, workspace_id, document_ids, comparison_data, datetime.utcnow().isoformat())
+            )
+            conn.commit()
+            conn.close()
+
+    def get_comparison_history(self, comparison_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM resume_comparison_history WHERE comparison_id = ?", (comparison_id,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None

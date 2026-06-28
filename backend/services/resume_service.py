@@ -1,8 +1,10 @@
 """Resume Intelligence Service Layer Module.
 
-Coordinates parsing, JD matching, skill-gap analysis, and PDF report compilation.
+Coordinates parsing, JD matching, skill-gap analysis, database writes, 
+and EventBus notifications dispatching.
 """
 
+import json
 from typing import Any, Dict, List, Optional
 import uuid
 
@@ -10,32 +12,49 @@ from backend.api.sqlite_mock import DBStorage
 from backend.agents.embedding import EmbeddingAgent
 from backend.runtime.task import Task
 from backend.tools.tool import ToolRegistry, ToolRequest
+from backend.runtime.event import Event, EventBus, EventType
+
+# Import resume tools module to guarantee auto registration in ToolRegistry
 import backend.tools.resume_tools
 
-# In-memory store to keep raw resume texts for analytics tools
+# In-memory backup store to map raw resume texts
 _resume_texts: Dict[str, str] = {}
 
 class ResumeOrchestrationService:
-    """Orchestrates workflows across document pipelines and resume analytical tools."""
+    """Orchestrates workflows across SQLite relational storage and resume intelligence tools."""
 
     def __init__(self, db: Optional[DBStorage] = None) -> None:
         self.db = db or DBStorage()
         self.embedding_agent = EmbeddingAgent()
         self.embedding_agent.initialize()
         self.tool_registry = ToolRegistry()
+        self.event_bus = EventBus()
+
+    def _publish_platform_event(self, event_name: str, payload: Dict[str, Any]) -> None:
+        """Publishes custom platform notification to EventBus."""
+        event = Event(
+            event_type=EventType.CUSTOM_EVENT,
+            source="ResumeIntelligencePlatform",
+            payload={
+                "event_name": event_name,
+                **payload
+            }
+        )
+        self.event_bus.publish(event)
+        self.event_bus.dispatch_all()
 
     def process_and_index_resume(self, filename: str, text: str, workspace_id: str) -> str:
-        """Saves resume metadata to db and runs embedding agent indexing."""
+        """Saves document details and indexes in vector database."""
         doc_id = f"res-{str(uuid.uuid4())[:8]}"
         checksum = str(hash(text))
 
-        # Store raw text locally for extraction tools
+        # Store raw text locally
         _resume_texts[doc_id] = text
 
-        # Save document metadata in DB
+        # Save document row
         self.db.create_document(doc_id, workspace_id, filename, checksum)
 
-        # Execute EmbeddingAgent task to slice and index text chunks
+        # Execute core indexing task
         task_embed = Task(
             description="Index resume content",
             metadata={
@@ -51,17 +70,24 @@ class ResumeOrchestrationService:
         self.embedding_agent.execute(task_embed)
         self.db.update_document_status(doc_id, "indexed")
 
+        # Publish upload event
+        self._publish_platform_event("resume.uploaded", {
+            "document_id": doc_id,
+            "workspace_id": workspace_id,
+            "filename": filename
+        })
+
         return doc_id
 
     def get_resume_text(self, doc_id: str) -> str:
-        """Retrieves raw resume text content."""
-        return _resume_texts.get(doc_id, "Jane Doe Resume\nSkills: Python, FastAPI, Docker\nExperience: Senior Engineer")
+        """Retrieves raw text content of resume."""
+        return _resume_texts.get(doc_id, "Jane Doe Resume\nSkills: Python, FastAPI\nExperience: Engineer")
 
     def analyze_resume(self, doc_id: str, workspace_id: str, user_id: str = "admin") -> Dict[str, Any]:
-        """Runs parser, skill extractor, experience, education, and ATS scoring tools."""
+        """Runs parser, ATS checklist scoring, and updates tables."""
         text = self.get_resume_text(doc_id)
-        
-        # 1. Execute parser
+
+        # 1. Execute Resume Parser
         parser_tool = self.tool_registry.get_tool("resume_parser")
         parser_res = parser_tool.execute(ToolRequest(
             request_id=str(uuid.uuid4()),
@@ -70,38 +96,30 @@ class ResumeOrchestrationService:
             user_id=user_id,
             arguments={"text": text}
         ))
+        parsed_data = parser_res.output if parser_res.success else {}
 
-        # 2. Execute skill extractor
-        skills_tool = self.tool_registry.get_tool("skills_extractor")
-        skills_res = skills_tool.execute(ToolRequest(
-            request_id=str(uuid.uuid4()),
-            tool_id="skills_extractor",
+        # 2. Write details to sqlite 'resumes' table
+        self.db.create_resume_metadata(
+            document_id=doc_id,
             workspace_id=workspace_id,
-            user_id=user_id,
-            arguments={"text": text}
-        ))
+            name=parsed_data.get("name", "Jane Doe"),
+            email=parsed_data.get("email", ""),
+            phone=parsed_data.get("phone", ""),
+            location=parsed_data.get("location", ""),
+            linkedin=parsed_data.get("linkedin", ""),
+            github=parsed_data.get("github", ""),
+            portfolio=parsed_data.get("portfolio", ""),
+            education=json.dumps(parsed_data.get("education", [])),
+            certifications=json.dumps(parsed_data.get("certifications", [])),
+            skills=json.dumps(parsed_data.get("skills", [])),
+            languages=json.dumps(parsed_data.get("languages", [])),
+            experience=json.dumps(parsed_data.get("experience", [])),
+            projects=json.dumps(parsed_data.get("projects", [])),
+            publications=json.dumps(parsed_data.get("publications", [])),
+            awards=json.dumps(parsed_data.get("awards", []))
+        )
 
-        # 3. Execute experience analyzer
-        exp_tool = self.tool_registry.get_tool("experience_analyzer")
-        exp_res = exp_tool.execute(ToolRequest(
-            request_id=str(uuid.uuid4()),
-            tool_id="experience_analyzer",
-            workspace_id=workspace_id,
-            user_id=user_id,
-            arguments={"text": text}
-        ))
-
-        # 4. Execute education analyzer
-        edu_tool = self.tool_registry.get_tool("education_analyzer")
-        edu_res = edu_tool.execute(ToolRequest(
-            request_id=str(uuid.uuid4()),
-            tool_id="education_analyzer",
-            workspace_id=workspace_id,
-            user_id=user_id,
-            arguments={"text": text}
-        ))
-
-        # 5. Execute ATS Scoring
+        # 3. Execute ATS Scoring
         ats_tool = self.tool_registry.get_tool("ats_scoring")
         ats_res = ats_tool.execute(ToolRequest(
             request_id=str(uuid.uuid4()),
@@ -110,53 +128,126 @@ class ResumeOrchestrationService:
             user_id=user_id,
             arguments={"text": text}
         ))
+        ats_data = ats_res.output if ats_res.success else {"ats_score": 0}
 
-        # 6. Execute Resume Improvement
-        imp_tool = self.tool_registry.get_tool("resume_improvement")
-        imp_res = imp_tool.execute(ToolRequest(
-            request_id=str(uuid.uuid4()),
-            tool_id="resume_improvement",
-            workspace_id=workspace_id,
-            user_id=user_id,
-            arguments={"text": text}
-        ))
+        # 4. Save ATS Report to DB
+        ats_id = f"ats-{str(uuid.uuid4())[:8]}"
+        self.db.create_ats_report(ats_id, doc_id, ats_data.get("ats_score", 0), json.dumps(ats_data))
+
+        # 5. Compile and save full analysis report
+        report_data = {
+            "parser": parsed_data,
+            "ats": ats_data
+        }
+        analysis_id = f"anl-{str(uuid.uuid4())[:8]}"
+        self.db.create_analysis_report(analysis_id, doc_id, workspace_id, json.dumps(report_data))
+
+        # Publish analysis event
+        self._publish_platform_event("resume.analyzed", {
+            "document_id": doc_id,
+            "workspace_id": workspace_id,
+            "analysis_id": analysis_id,
+            "ats_score": ats_data.get("ats_score", 0)
+        })
 
         return {
             "document_id": doc_id,
-            "parser": parser_res.output if parser_res.success else {},
-            "skills": skills_res.output if skills_res.success else {},
-            "experience": exp_res.output if exp_res.success else {},
-            "education": edu_res.output if edu_res.success else {},
-            "ats": ats_res.output if ats_res.success else {},
-            "improvement": imp_res.output if imp_res.success else {}
+            "analysis_id": analysis_id,
+            "report_data": report_data
         }
 
     def match_resume_to_jd(self, doc_id: str, jd_text: str, workspace_id: str, user_id: str = "admin") -> Dict[str, Any]:
-        """Matches resume credentials against a target job description requirements."""
+        """Runs match comparison metrics against job description."""
         text = self.get_resume_text(doc_id)
 
-        # 1. Matcher tool
-        match_tool = self.tool_registry.get_tool("jd_matcher")
-        match_res = match_tool.execute(ToolRequest(
+        # 1. Execute job matcher
+        matcher = self.tool_registry.get_tool("job_matcher")
+        matcher_res = matcher.execute(ToolRequest(
             request_id=str(uuid.uuid4()),
-            tool_id="jd_matcher",
+            tool_id="job_matcher",
             workspace_id=workspace_id,
             user_id=user_id,
             arguments={"text": text, "jd": jd_text}
         ))
+        match_data = matcher_res.output if matcher_res.success else {}
 
-        # 2. Skill gap analyzer tool
-        gap_tool = self.tool_registry.get_tool("skill_gap_analyzer")
+        # 2. Execute Skill Gap
+        gap_tool = self.tool_registry.get_tool("skill_gap")
         gap_res = gap_tool.execute(ToolRequest(
             request_id=str(uuid.uuid4()),
-            tool_id="skill_gap_analyzer",
+            tool_id="skill_gap",
             workspace_id=workspace_id,
             user_id=user_id,
             arguments={"text": text, "jd": jd_text}
         ))
+        gap_data = gap_res.output if gap_res.success else {}
+
+        compiled_match = {
+            "matcher": match_data,
+            "skill_gap": gap_data
+        }
+
+        # Publish match event
+        self._publish_platform_event("resume.matched", {
+            "document_id": doc_id,
+            "workspace_id": workspace_id,
+            "compatibility_score": match_data.get("compatibility_score", 0)
+        })
+
+        return compiled_match
+
+    def compare_resumes(self, doc_ids: List[str], workspace_id: str, user_id: str = "admin") -> Dict[str, Any]:
+        """Runs side-by-side comparison across version history files."""
+        resumes_list = []
+        for doc_id in doc_ids:
+            text = self.get_resume_text(doc_id)
+            resumes_list.append({"candidate_id": doc_id, "text": text})
+
+        compare_tool = self.tool_registry.get_tool("resume_comparison")
+        tool_res = compare_tool.execute(ToolRequest(
+            request_id=str(uuid.uuid4()),
+            tool_id="resume_comparison",
+            workspace_id=workspace_id,
+            user_id=user_id,
+            arguments={"resumes": resumes_list}
+        ))
+        compare_data = tool_res.output if tool_res.success else {}
+
+        # Save to DB history
+        comparison_id = f"cmp-{str(uuid.uuid4())[:8]}"
+        self.db.create_comparison_history(comparison_id, workspace_id, ",".join(doc_ids), json.dumps(compare_data))
+
+        # Publish comparison event
+        self._publish_platform_event("resume.compared", {
+            "comparison_id": comparison_id,
+            "workspace_id": workspace_id,
+            "document_ids": doc_ids
+        })
 
         return {
-            "document_id": doc_id,
-            "matcher": match_res.output if match_res.success else {},
-            "gap_analysis": gap_res.output if gap_res.success else {}
+            "comparison_id": comparison_id,
+            "compare_data": compare_data
         }
+
+    def generate_report(self, doc_id: str, workspace_id: str, user_id: str = "admin") -> Dict[str, Any]:
+        """Generates formats using Report tool."""
+        # Compile report details first
+        report = self.analyze_resume(doc_id, workspace_id, user_id)
+        
+        report_tool = self.tool_registry.get_tool("resume_report")
+        tool_res = report_tool.execute(ToolRequest(
+            request_id=str(uuid.uuid4()),
+            tool_id="resume_report",
+            workspace_id=workspace_id,
+            user_id=user_id,
+            arguments={"report_data": report.get("report_data", {})}
+        ))
+        report_data = tool_res.output if tool_res.success else {}
+
+        # Publish generated event
+        self._publish_platform_event("resume.report.generated", {
+            "document_id": doc_id,
+            "workspace_id": workspace_id
+        })
+
+        return report_data

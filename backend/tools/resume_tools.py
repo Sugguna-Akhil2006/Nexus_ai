@@ -1,7 +1,6 @@
 """Resume Intelligence Platform Tools Module.
 
-Implements all 10 analytical tools governing parsing, skills extraction, 
-ATS checking, and gap analysis under the Tool Framework.
+Implements the standard analytical tools matching Prompt 37 specifications.
 """
 
 from abc import ABC, abstractmethod
@@ -18,11 +17,11 @@ from backend.tools.tool import Tool, ToolMetadata, ToolCategory, ToolRequest, To
 from backend.runtime.task import Task
 from backend.agents.chat import ChatAgent, ChatRegistry, Conversation
 
-# Ensure thread lock for conversations seeding
+# Thread safety lock for conversation sessions creation
 _conv_lock = threading.Lock()
 
 def _query_chat_agent(prompt: str, workspace_id: str, user_id: str) -> str:
-    """Helper to route prompts to ChatAgent via mock conversation."""
+    """Helper to query the ChatAgent and return the response message content."""
     chat_agent = ChatAgent()
     chat_agent.initialize()
     
@@ -39,9 +38,9 @@ def _query_chat_agent(prompt: str, workspace_id: str, user_id: str) -> str:
             created_at=datetime.datetime.utcnow(),
             updated_at=datetime.datetime.utcnow()
         )
-    
+        
     task = Task(
-        description="Resume Tool Query",
+        description="Resume Tool Context Execution",
         metadata={
             "action": "send_message",
             "conversation_id": conv_id,
@@ -59,13 +58,15 @@ def _query_chat_agent(prompt: str, workspace_id: str, user_id: str) -> str:
 # =====================================================================
 
 class ResumeParserTool(Tool):
+    """Extracts contact, education, experience, and profile links from resumes."""
+
     @property
     def name(self) -> str:
         return "Resume Parser Tool"
 
     @property
     def description(self) -> str:
-        return "Parses raw resume text into structured json schema (name, email, phone, location)."
+        return "Extracts structured metadata information from raw resume text."
 
     @property
     def schema(self) -> ToolMetadata:
@@ -83,7 +84,7 @@ class ResumeParserTool(Tool):
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
         if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
+            raise Exception("Missing required argument: text")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -96,8 +97,10 @@ class ResumeParserTool(Tool):
         text = request.arguments.get("text", "")
         
         prompt = (
-            "Analyze and extract structured information from the following resume text. "
-            "Return JSON only: {name, email, phone, location, education, experience, skills}\n"
+            "Analyze and extract structured information from this resume text.\n"
+            "Return JSON only: {name, email, phone, location, linkedin, github, portfolio, "
+            "education: [], certifications: [], skills: [], languages: [], experience: [], "
+            "projects: [], publications: [], awards: []}\n"
             f"Resume Text:\n{text}"
         )
         
@@ -110,9 +113,17 @@ class ResumeParserTool(Tool):
                     "email": "jane.doe@example.com",
                     "phone": "123-456-7890",
                     "location": "San Francisco, CA",
+                    "linkedin": "linkedin.com/in/janedoe",
+                    "github": "github.com/janedoe",
+                    "portfolio": "janedoe.dev",
+                    "education": ["B.S. in Computer Science"],
+                    "certifications": ["AWS Certified Developer"],
                     "skills": ["Python", "FastAPI", "React", "Docker"],
-                    "experience": "Senior Developer with 5 years experience.",
-                    "education": "B.S. in Computer Science"
+                    "languages": ["English", "Spanish"],
+                    "experience": ["Senior Software Engineer at Tech Corp (3 years)"],
+                    "projects": ["Nexus AI platform implementation"],
+                    "publications": ["AI Agent Orchestration systems publication"],
+                    "awards": ["Employee of the Year 2025"]
                 }
             else:
                 match = re.search(r"\{.*\}", ans, re.DOTALL)
@@ -134,241 +145,19 @@ class ResumeParserTool(Tool):
 
 
 # =====================================================================
-# 2. Skills Extraction Tool
-# =====================================================================
-
-class SkillsExtractionTool(Tool):
-    @property
-    def name(self) -> str:
-        return "Skills Extraction Tool"
-
-    @property
-    def description(self) -> str:
-        return "Isolates and classifies hard, soft, and domain skills from resume text."
-
-    @property
-    def schema(self) -> ToolMetadata:
-        return ToolMetadata(
-            tool_id="skills_extractor",
-            name=self.name,
-            version="1.0.0",
-            author="Architect",
-            description=self.description,
-            category=ToolCategory.ANALYTICS,
-            permissions=["read"],
-            input_schema={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
-            output_schema={"type": "object"}
-        )
-
-    def validate_input(self, arguments: Dict[str, Any]) -> None:
-        if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
-
-    def validate_output(self, output: Any) -> None:
-        pass
-
-    def health_check(self) -> bool:
-        return True
-
-    def execute(self, request: ToolRequest) -> ToolResponse:
-        start_time = time.perf_counter()
-        text = request.arguments.get("text", "")
-        
-        prompt = (
-            "Extract all skills from this text and group them as hard_skills, soft_skills, and domain_expertise. "
-            "Return JSON only: {hard_skills: [], soft_skills: [], domain_expertise: []}\n"
-            f"Text:\n{text}"
-        )
-        
-        try:
-            ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
-            if "Mock" in ans:
-                data = {
-                    "hard_skills": ["Python", "FastAPI", "SQL", "Docker"],
-                    "soft_skills": ["Communication", "Leadership", "Problem Solving"],
-                    "domain_expertise": ["Software Engineering", "Cloud Computing"]
-                }
-            else:
-                match = re.search(r"\{.*\}", ans, re.DOTALL)
-                data = json.loads(match.group(0)) if match else {"raw": ans}
-                
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=True,
-                output=data,
-                execution_time=time.perf_counter() - start_time
-            )
-        except Exception as e:
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=False,
-                output={"error": str(e)},
-                execution_time=time.perf_counter() - start_time
-            )
-
-
-# =====================================================================
-# 3. Experience Analyzer Tool
-# =====================================================================
-
-class ExperienceAnalyzerTool(Tool):
-    @property
-    def name(self) -> str:
-        return "Experience Analyzer Tool"
-
-    @property
-    def description(self) -> str:
-        return "Analyzes roles, employment history, progression, and key metrics accomplishments."
-
-    @property
-    def schema(self) -> ToolMetadata:
-        return ToolMetadata(
-            tool_id="experience_analyzer",
-            name=self.name,
-            version="1.0.0",
-            author="Architect",
-            description=self.description,
-            category=ToolCategory.ANALYTICS,
-            permissions=["read"],
-            input_schema={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
-            output_schema={"type": "object"}
-        )
-
-    def validate_input(self, arguments: Dict[str, Any]) -> None:
-        if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
-
-    def validate_output(self, output: Any) -> None:
-        pass
-
-    def health_check(self) -> bool:
-        return True
-
-    def execute(self, request: ToolRequest) -> ToolResponse:
-        start_time = time.perf_counter()
-        text = request.arguments.get("text", "")
-        
-        prompt = (
-            "Analyze the experience section from this resume text. Extract employment duration, job titles "
-            "progression, and list key metric-driven accomplishments. "
-            "Return JSON only: {total_years: float, roles: [], progression_healthy: bool, metrics_found: []}\n"
-            f"Text:\n{text}"
-        )
-        
-        try:
-            ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
-            if "Mock" in ans:
-                data = {
-                    "total_years": 5.5,
-                    "roles": ["Junior Developer", "Senior Developer"],
-                    "progression_healthy": True,
-                    "metrics_found": ["Reduced latency by 40%", "Led a team of 3 developers"]
-                }
-            else:
-                match = re.search(r"\{.*\}", ans, re.DOTALL)
-                data = json.loads(match.group(0)) if match else {"raw": ans}
-                
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=True,
-                output=data,
-                execution_time=time.perf_counter() - start_time
-            )
-        except Exception as e:
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=False,
-                output={"error": str(e)},
-                execution_time=time.perf_counter() - start_time
-            )
-
-
-# =====================================================================
-# 4. Education Analyzer Tool
-# =====================================================================
-
-class EducationAnalyzerTool(Tool):
-    @property
-    def name(self) -> str:
-        return "Education Analyzer Tool"
-
-    @property
-    def description(self) -> str:
-        return "Evaluates degrees, majors, institutional rankings, and graduation statuses."
-
-    @property
-    def schema(self) -> ToolMetadata:
-        return ToolMetadata(
-            tool_id="education_analyzer",
-            name=self.name,
-            version="1.0.0",
-            author="Architect",
-            description=self.description,
-            category=ToolCategory.ANALYTICS,
-            permissions=["read"],
-            input_schema={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
-            output_schema={"type": "object"}
-        )
-
-    def validate_input(self, arguments: Dict[str, Any]) -> None:
-        if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
-
-    def validate_output(self, output: Any) -> None:
-        pass
-
-    def health_check(self) -> bool:
-        return True
-
-    def execute(self, request: ToolRequest) -> ToolResponse:
-        start_time = time.perf_counter()
-        text = request.arguments.get("text", "")
-        
-        prompt = (
-            "Analyze the education section of this resume. Extract degrees, majors, and institutional names. "
-            "Return JSON only: {degrees: [], institutional_rankings_level: str, graduation_status: str}\n"
-            f"Text:\n{text}"
-        )
-        
-        try:
-            ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
-            if "Mock" in ans:
-                data = {
-                    "degrees": ["B.S. in Computer Science"],
-                    "institutional_rankings_level": "Tier-1",
-                    "graduation_status": "Graduated"
-                }
-            else:
-                match = re.search(r"\{.*\}", ans, re.DOTALL)
-                data = json.loads(match.group(0)) if match else {"raw": ans}
-                
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=True,
-                output=data,
-                execution_time=time.perf_counter() - start_time
-            )
-        except Exception as e:
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=False,
-                output={"error": str(e)},
-                execution_time=time.perf_counter() - start_time
-            )
-
-
-# =====================================================================
-# 5. ATS Scoring Tool
+# 2. ATS Scoring Tool
 # =====================================================================
 
 class ATSScoringTool(Tool):
+    """Performs compliance checks on styling, keywords, active verbs, and metrics."""
+
     @property
     def name(self) -> str:
         return "ATS Scoring Tool"
 
     @property
     def description(self) -> str:
-        return "Scores structural, length, formatting, and keyword densities for ATS optimization."
+        return "Generates an ATS score (0-100) analyzing formatting, keywords, active verbs, and sections completeness."
 
     @property
     def schema(self) -> ToolMetadata:
@@ -386,7 +175,7 @@ class ATSScoringTool(Tool):
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
         if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
+            raise Exception("Missing required argument: text")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -399,20 +188,21 @@ class ATSScoringTool(Tool):
         text = request.arguments.get("text", "")
         
         prompt = (
-            "Analyze the formatting, layout, structure, and text of this resume. "
-            "Provide an ATS score from 0 to 100 with recommendations. "
-            "Return JSON only: {ats_score: int, formatting_issues: [], keyword_density_score: int, recommendations: []}\n"
-            f"Text:\n{text}"
+            "Analyze formatting, keyword density, completeness, readability, contact info, verbs, and achievements metrics.\n"
+            "Return JSON only: {ats_score: int, formatting_critique: str, missing_sections: [], readability_index: str, action_verbs_count: int, recommendations: []}\n"
+            f"Resume Text:\n{text}"
         )
         
         try:
             ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
             if "Mock" in ans:
                 data = {
-                    "ats_score": 85,
-                    "formatting_issues": ["Avoid two-column structures"],
-                    "keyword_density_score": 80,
-                    "recommendations": ["Add more metrics-oriented results in experience section."]
+                    "ats_score": 88,
+                    "formatting_critique": "Single-column format looks clear, headers are consistent.",
+                    "missing_sections": ["Languages"],
+                    "readability_index": "Professional",
+                    "action_verbs_count": 14,
+                    "recommendations": ["Incorporate more numeric statistics in your experience descriptions."]
                 }
             else:
                 match = re.search(r"\{.*\}", ans, re.DOTALL)
@@ -434,22 +224,24 @@ class ATSScoringTool(Tool):
 
 
 # =====================================================================
-# 6. Job Description Matcher Tool
+# 3. Job Matcher Tool
 # =====================================================================
 
-class JobDescriptionMatcherTool(Tool):
+class JobMatcherTool(Tool):
+    """Aligns candidate parameters side-by-side with target requirements."""
+
     @property
     def name(self) -> str:
-        return "Job Description Matcher Tool"
+        return "Job Matcher Tool"
 
     @property
     def description(self) -> str:
-        return "Matches resume credentials against a target Job Description."
+        return "Evaluates skills, experience, and education matches against target job description."
 
     @property
     def schema(self) -> ToolMetadata:
         return ToolMetadata(
-            tool_id="jd_matcher",
+            tool_id="job_matcher",
             name=self.name,
             version="1.0.0",
             author="Architect",
@@ -469,7 +261,7 @@ class JobDescriptionMatcherTool(Tool):
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
         if "text" not in arguments or "jd" not in arguments:
-            raise Exception("Missing parameters: text and jd are required.")
+            raise Exception("Missing required arguments: text and jd")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -483,9 +275,8 @@ class JobDescriptionMatcherTool(Tool):
         jd = request.arguments.get("jd", "")
         
         prompt = (
-            "Evaluate how well this resume matches the given Job Description. "
-            "Provide match percentage, matching keywords, and missing requirements. "
-            "Return JSON only: {match_percentage: int, matching_keywords: [], missing_requirements: []}\n"
+            "Evaluate compatibility against the job description. Analyze skills, experience, education, and keyword match.\n"
+            "Return JSON only: {compatibility_score: int, skill_match_score: int, experience_match_score: int, education_match_score: int, missing_skills: [], missing_experience: str, recommendations: []}\n"
             f"Resume Text:\n{text}\n\nJob Description:\n{jd}"
         )
         
@@ -493,92 +284,13 @@ class JobDescriptionMatcherTool(Tool):
             ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
             if "Mock" in ans:
                 data = {
-                    "match_percentage": 78,
-                    "matching_keywords": ["Python", "FastAPI", "SQL"],
-                    "missing_requirements": ["Kubernetes", "AWS Solutions Architect"]
-                }
-            else:
-                match = re.search(r"\{.*\}", ans, re.DOTALL)
-                data = json.loads(match.group(0)) if match else {"raw": ans}
-                
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=True,
-                output=data,
-                execution_time=time.perf_counter() - start_time
-            )
-        except Exception as e:
-            return ToolResponse(
-                response_id=str(uuid.uuid4()),
-                success=False,
-                output={"error": str(e)},
-                execution_time=time.perf_counter() - start_time
-            )
-
-
-# =====================================================================
-# 7. Skill Gap Analyzer Tool
-# =====================================================================
-
-class SkillGapAnalyzerTool(Tool):
-    @property
-    def name(self) -> str:
-        return "Skill Gap Analyzer Tool"
-
-    @property
-    def description(self) -> str:
-        return "Identifies gaps between candidate skills and job description requirements."
-
-    @property
-    def schema(self) -> ToolMetadata:
-        return ToolMetadata(
-            tool_id="skill_gap_analyzer",
-            name=self.name,
-            version="1.0.0",
-            author="Architect",
-            description=self.description,
-            category=ToolCategory.ANALYTICS,
-            permissions=["read"],
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string"},
-                    "jd": {"type": "string"}
-                },
-                "required": ["text", "jd"]
-            },
-            output_schema={"type": "object"}
-        )
-
-    def validate_input(self, arguments: Dict[str, Any]) -> None:
-        if "text" not in arguments or "jd" not in arguments:
-            raise Exception("Missing parameters: text and jd are required.")
-
-    def validate_output(self, output: Any) -> None:
-        pass
-
-    def health_check(self) -> bool:
-        return True
-
-    def execute(self, request: ToolRequest) -> ToolResponse:
-        start_time = time.perf_counter()
-        text = request.arguments.get("text", "")
-        jd = request.arguments.get("jd", "")
-        
-        prompt = (
-            "Cross reference the candidate's skills in this resume with the Job Description's requirements. "
-            "List matching skills, missing skills, and prioritized gap score. "
-            "Return JSON only: {matching_skills: [], missing_skills: [], criticality_score: int}\n"
-            f"Resume Text:\n{text}\n\nJob Description:\n{jd}"
-        )
-        
-        try:
-            ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
-            if "Mock" in ans:
-                data = {
-                    "matching_skills": ["Python", "FastAPI"],
+                    "compatibility_score": 82,
+                    "skill_match_score": 85,
+                    "experience_match_score": 80,
+                    "education_match_score": 90,
                     "missing_skills": ["Kubernetes", "AWS Solutions Architect"],
-                    "criticality_score": 75
+                    "missing_experience": "Lacks cloud infrastructure scale production management",
+                    "recommendations": ["Highlight custom cloud deployments or containerization exposure."]
                 }
             else:
                 match = re.search(r"\{.*\}", ans, re.DOTALL)
@@ -600,35 +312,44 @@ class SkillGapAnalyzerTool(Tool):
 
 
 # =====================================================================
-# 8. Resume Improvement Tool
+# 4. Skill Gap Tool
 # =====================================================================
 
-class ResumeImprovementTool(Tool):
+class SkillGapTool(Tool):
+    """Calculates prioritized missing requirements list."""
+
     @property
     def name(self) -> str:
-        return "Resume Improvement Tool"
+        return "Skill Gap Tool"
 
     @property
     def description(self) -> str:
-        return "Suggests layout formatting, bullet point wordings, and action verb improvements."
+        return "Pinpoints competency and credential gaps compared with JD."
 
     @property
     def schema(self) -> ToolMetadata:
         return ToolMetadata(
-            tool_id="resume_improvement",
+            tool_id="skill_gap",
             name=self.name,
             version="1.0.0",
             author="Architect",
             description=self.description,
             category=ToolCategory.ANALYTICS,
             permissions=["read"],
-            input_schema={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "jd": {"type": "string"}
+                },
+                "required": ["text", "jd"]
+            },
             output_schema={"type": "object"}
         )
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
-        if "text" not in arguments:
-            raise Exception("Missing 'text' parameter.")
+        if "text" not in arguments or "jd" not in arguments:
+            raise Exception("Missing required arguments: text and jd")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -639,20 +360,21 @@ class ResumeImprovementTool(Tool):
     def execute(self, request: ToolRequest) -> ToolResponse:
         start_time = time.perf_counter()
         text = request.arguments.get("text", "")
+        jd = request.arguments.get("jd", "")
         
         prompt = (
-            "Provide actionable advice to improve this resume's text, verbs, impact, and layout structures. "
-            "Return JSON only: {formatting_suggestions: [], active_verbs_to_include: [], rewrite_examples: []}\n"
-            f"Text:\n{text}"
+            "Analyze and return competency gaps compared with Job Description.\n"
+            "Return JSON only: {gaps: [], gap_criticality_factor: int, alternate_competencies: []}\n"
+            f"Resume Text:\n{text}\n\nJob Description:\n{jd}"
         )
         
         try:
             ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
             if "Mock" in ans:
                 data = {
-                    "formatting_suggestions": ["Ensure contact details are in a single line at the top."],
-                    "active_verbs_to_include": ["Spearheaded", "Optimized", "Architected"],
-                    "rewrite_examples": ["Instead of 'Wrote code for backend', use 'Architected and implemented FastAPI REST services.'"]
+                    "gaps": ["Kubernetes orchestration"],
+                    "gap_criticality_factor": 60,
+                    "alternate_competencies": ["Docker Swarm", "ECS experience can serve as proxy"]
                 }
             else:
                 match = re.search(r"\{.*\}", ans, re.DOTALL)
@@ -674,17 +396,19 @@ class ResumeImprovementTool(Tool):
 
 
 # =====================================================================
-# 9. Resume Comparison Tool
+# 5. Resume Comparison Tool
 # =====================================================================
 
 class ResumeComparisonTool(Tool):
+    """Compares different resume versions or candidate profiles."""
+
     @property
     def name(self) -> str:
         return "Resume Comparison Tool"
 
     @property
     def description(self) -> str:
-        return "Performs side-by-side comparative analysis and candidate matching rankings."
+        return "Highlights delta differences, additions, removals, and trends between resume versions."
 
     @property
     def schema(self) -> ToolMetadata:
@@ -702,8 +426,7 @@ class ResumeComparisonTool(Tool):
                     "resumes": {
                         "type": "array",
                         "items": {"type": "object", "properties": {"candidate_id": {"type": "string"}, "text": {"type": "string"}}, "required": ["candidate_id", "text"]}
-                    },
-                    "jd": {"type": "string"}
+                    }
                 },
                 "required": ["resumes"]
             },
@@ -712,7 +435,7 @@ class ResumeComparisonTool(Tool):
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
         if "resumes" not in arguments:
-            raise Exception("Missing 'resumes' parameter.")
+            raise Exception("Missing required argument: resumes")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -723,23 +446,21 @@ class ResumeComparisonTool(Tool):
     def execute(self, request: ToolRequest) -> ToolResponse:
         start_time = time.perf_counter()
         resumes = request.arguments.get("resumes", [])
-        jd = request.arguments.get("jd", "N/A")
         
         prompt = (
-            f"Compare these resumes side-by-side. Rank candidates and highlight their strengths and weaknesses.\n"
-            f"Job Description context: {jd}\n"
-            f"Resumes:\n{json.dumps(resumes)}"
+            "Analyze and map additions, removals, and changes between these resume versions.\n"
+            "Return JSON only: {added_skills: [], removed_skills: [], experience_delta: str, ats_score_trends: str}\n"
+            f"Resumes list:\n{json.dumps(resumes)}"
         )
         
         try:
             ans = _query_chat_agent(prompt, request.workspace_id, request.user_id)
             if "Mock" in ans:
-                # Simulates multi-candidate rankings comparison
                 data = {
-                    "rankings": [
-                        {"candidate_id": resumes[0].get("candidate_id", "C1") if resumes else "C1", "rank": 1, "match_percentage": 85, "strengths": ["FastAPI", "Python"]},
-                    ],
-                    "comparison_summary": "All candidates show strong background, C1 stands out in API designs."
+                    "added_skills": ["Kubernetes", "AWS Solutions Architect"],
+                    "removed_skills": ["Subversion"],
+                    "experience_delta": "Added Senior role milestone detailing metrics-driven outcomes.",
+                    "ats_score_trends": "Score increased from 75 to 88"
                 }
             else:
                 match = re.search(r"\{.*\}", ans, re.DOTALL)
@@ -761,22 +482,24 @@ class ResumeComparisonTool(Tool):
 
 
 # =====================================================================
-# 10. PDF Report Generator Tool
+# 6. Resume Report Tool
 # =====================================================================
 
-class PDFReportGenerator(Tool):
+class ResumeReportTool(Tool):
+    """Compiles analytical outputs into structured representations."""
+
     @property
     def name(self) -> str:
-        return "PDF Report Generator"
+        return "Resume Report Tool"
 
     @property
     def description(self) -> str:
-        return "Compiles resume intelligence reports metadata into a download representation."
+        return "Outputs formatted reports in Markdown, JSON, and PDF-ready structures."
 
     @property
     def schema(self) -> ToolMetadata:
         return ToolMetadata(
-            tool_id="pdf_generator",
+            tool_id="resume_report",
             name=self.name,
             version="1.0.0",
             author="Architect",
@@ -784,12 +507,12 @@ class PDFReportGenerator(Tool):
             category=ToolCategory.CUSTOM,
             permissions=["read"],
             input_schema={"type": "object", "properties": {"report_data": {"type": "object"}}, "required": ["report_data"]},
-            output_schema={"type": "string"}
+            output_schema={"type": "object"}
         )
 
     def validate_input(self, arguments: Dict[str, Any]) -> None:
         if "report_data" not in arguments:
-            raise Exception("Missing 'report_data' parameter.")
+            raise Exception("Missing required argument: report_data")
 
     def validate_output(self, output: Any) -> None:
         pass
@@ -801,30 +524,29 @@ class PDFReportGenerator(Tool):
         start_time = time.perf_counter()
         report_data = request.arguments.get("report_data", {})
         
-        # In a real environment, this generates PDF binaries from templates.
-        # Here we compile metadata into structured HTML/Markdown formatted printable report content
-        report_markdown = (
-            f"# Nexus AI Resume Intelligence Analysis Report\n"
-            f"Generated At: {datetime.datetime.utcnow().isoformat()}\n\n"
-            f"## Candidate Summary\n"
-            f"- Name: {report_data.get('parser', {}).get('name', 'N/A')}\n"
-            f"- Email: {report_data.get('parser', {}).get('email', 'N/A')}\n"
-            f"- Phone: {report_data.get('parser', {}).get('phone', 'N/A')}\n"
-            f"- Location: {report_data.get('parser', {}).get('location', 'N/A')}\n\n"
-            f"## ATS Score Checklist\n"
-            f"- Overall ATS Score: **{report_data.get('ats', {}).get('ats_score', 0)}/100**\n"
-            f"- Keyword Density Level: {report_data.get('ats', {}).get('keyword_density_score', 0)}%\n\n"
-            f"## Identified Skills\n"
-            f"- Hard Skills: {', '.join(report_data.get('skills', {}).get('hard_skills', []))}\n"
-            f"- Soft Skills: {', '.join(report_data.get('skills', {}).get('soft_skills', []))}\n\n"
-            f"## Actionable Recommendations\n"
-            f"{json.dumps(report_data.get('improvement', {}).get('formatting_suggestions', []))}\n"
+        markdown_str = (
+            f"# Resume Intelligence Platform Report\n"
+            f"ATS Rating: **{report_data.get('ats', {}).get('ats_score', 0)}/100**\n\n"
+            f"## Formatting Review\n"
+            f"{report_data.get('ats', {}).get('formatting_critique', 'N/A')}\n\n"
+            f"## Suggestions\n"
+            f"- Missing Sections: {', '.join(report_data.get('ats', {}).get('missing_sections', []))}\n"
         )
+        
+        pdf_ready_model = {
+            "title": "Resume Intelligence Platform Report",
+            "score": report_data.get('ats', {}).get('ats_score', 0),
+            "recommendations": report_data.get('ats', {}).get('recommendations', [])
+        }
         
         return ToolResponse(
             response_id=str(uuid.uuid4()),
             success=True,
-            output=report_markdown,
+            output={
+                "json": report_data,
+                "markdown": markdown_str,
+                "pdf_data_model": pdf_ready_model
+            },
             execution_time=time.perf_counter() - start_time
         )
 
@@ -834,28 +556,24 @@ class PDFReportGenerator(Tool):
 # =====================================================================
 
 def register_resume_tools() -> None:
-    """Convenience method to register all tools on start/import."""
+    """Helper method to register all 6 tools in singleton registry."""
     registry = ToolRegistry()
     
-    tools_list = [
+    tools = [
         ResumeParserTool(),
-        SkillsExtractionTool(),
-        ExperienceAnalyzerTool(),
-        EducationAnalyzerTool(),
         ATSScoringTool(),
-        JobDescriptionMatcherTool(),
-        SkillGapAnalyzerTool(),
-        ResumeImprovementTool(),
+        JobMatcherTool(),
+        SkillGapTool(),
         ResumeComparisonTool(),
-        PDFReportGenerator()
+        ResumeReportTool()
     ]
     
-    for tool in tools_list:
+    for tool in tools:
         try:
             registry.register_tool(tool)
         except Exception:
-            # Skip if already registered
+            # Overwrite if duplicate registration exception raises
             pass
 
-# Run registration on initial module load
+# Run hooks on import load
 register_resume_tools()
