@@ -206,13 +206,10 @@ EmbeddingRegistry().register_provider("mock_embedding", MockEmbeddingProvider())
 
 # Configure Default Ollama / OpenAI Models in Registry
 try:
-    import socket
-    # Fast TCP port connection ping test
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(0.5)
-    sock.connect(("127.0.0.1", 11434))
-    sock.close()
-    
+    import urllib.request
+    req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+    with urllib.request.urlopen(req, timeout=1.0) as resp:
+        pass
     model_provider = OllamaProvider(config=OllamaConfiguration(host="localhost", port=11434))
     model_provider.initialize()
 except Exception:

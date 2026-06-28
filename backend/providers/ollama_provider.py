@@ -163,8 +163,12 @@ class OllamaProvider(BaseProvider, ModelProvider):
         self._publish_event("provider.request.started", model=request.model)
         start_time = time.perf_counter()
 
+        model_name = request.model
+        chat_models = [m.model_id for m in self._cached_models if ModelCapability.CHAT in m.capabilities]
+        is_mock_config = self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False)
+
         # Handle Mock URL / offline tests
-        if self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False):
+        if is_mock_config or not chat_models:
             latency = 0.05
             content = f"Mock local Ollama response matching '{request.prompt or 'hello'}'"
             self.metrics.record(success=True, latency=latency)
@@ -179,13 +183,17 @@ class OllamaProvider(BaseProvider, ModelProvider):
                 model=request.model
             )
 
+        # Automatically translate mock model or missing models to the first downloaded local model
+        if model_name == "mock-chat-model" or (model_name not in chat_models and f"{model_name}:latest" not in chat_models):
+            model_name = chat_models[0]
+
         headers = {"Content-Type": "application/json"}
         messages = request.messages
         if not messages and request.prompt:
             messages = [{"role": "user", "content": request.prompt}]
 
         payload = {
-            "model": request.model,
+            "model": model_name,
             "messages": messages,
             "stream": False,
             "options": request.parameters
@@ -238,8 +246,12 @@ class OllamaProvider(BaseProvider, ModelProvider):
     def generate_stream(self, request: InferenceRequest) -> Iterator[InferenceResponse]:
         self._publish_event("provider.stream.started", model=request.model)
 
-        # Handle Mock stream or mock model names
-        if self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False) or request.model == "mock-chat-model":
+        model_name = request.model
+        chat_models = [m.model_id for m in self._cached_models if ModelCapability.CHAT in m.capabilities]
+        is_mock_config = self.ollama_config.host.startswith("mock") or self.ollama_config.metadata.get("mock", False)
+
+        # Fall back to mock stream ONLY when mock host is forced or no local models are available
+        if is_mock_config or not chat_models:
             query = ""
             if request.messages:
                 query = request.messages[-1].get("content", "")
@@ -267,13 +279,17 @@ class OllamaProvider(BaseProvider, ModelProvider):
                 )
             return
 
+        # Automatically translate mock model or missing models to the first downloaded local model
+        if model_name == "mock-chat-model" or (model_name not in chat_models and f"{model_name}:latest" not in chat_models):
+            model_name = chat_models[0]
+
         headers = {"Content-Type": "application/json"}
         messages = request.messages
         if not messages and request.prompt:
             messages = [{"role": "user", "content": request.prompt}]
 
         payload = {
-            "model": request.model,
+            "model": model_name,
             "messages": messages,
             "stream": True,
             "options": request.parameters
