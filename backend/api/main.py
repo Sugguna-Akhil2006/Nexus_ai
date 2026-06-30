@@ -10,8 +10,10 @@ from datetime import datetime, timedelta
 import json
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional
 import uuid
+import io
 
 # FastAPI imports
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
@@ -221,6 +223,27 @@ if "ollama" not in ModelRegistry().list_providers():
 from backend.agents.search import SearchRegistry, SearchProvider, SearchRequest as AgentSearchRequest, SearchResult as AgentSearchResult
 from backend.interfaces.vector import SearchRequest as VectorSearchRequest
 
+def _extract_text_from_file(contents: bytes, filename: str) -> str:
+    """Extracts plaintext from uploaded file bytes by detecting format."""
+    name_lower = filename.lower()
+    try:
+        if name_lower.endswith(".docx"):
+            from docx import Document as DocxDocument
+            doc = DocxDocument(io.BytesIO(contents))
+            return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+        elif name_lower.endswith(".pdf"):
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(contents))
+            pages = [page.extract_text() or "" for page in reader.pages]
+            return "\n".join(pages)
+        else:
+            # Plain text, markdown, CSV, JSON etc.
+            return contents.decode("utf-8", errors="ignore")
+    except Exception:
+        # Graceful fallback for unknown or malformed files
+        return contents.decode("utf-8", errors="ignore")
+
+
 class VectorSearchProvider(SearchProvider):
     def __init__(self, vector_registry: VectorRegistry):
         self.vector_registry = vector_registry
@@ -231,7 +254,11 @@ class VectorSearchProvider(SearchProvider):
         embeddings = embed_provider.generate_embeddings([request.query], "mock-embed-small")[0]
 
         col_id = f"col_{request.workspace_id}"
-        vec_provider = self.vector_registry.get_provider("qdrant")
+        # Resolve the registered vector provider dynamically
+        vec_providers = self.vector_registry.list_providers()
+        if not vec_providers:
+            return []
+        vec_provider = self.vector_registry.get_provider(vec_providers[0])
         col_exists = any(c.collection_id == col_id for c in vec_provider.list_collections())
         if not col_exists:
             return []
@@ -244,12 +271,14 @@ class VectorSearchProvider(SearchProvider):
 
         agent_results = []
         for r in results:
+            # Pull original chunk text from stored metadata
+            chunk_text = r.metadata.get("text") or r.payload.get("text", "")
             agent_results.append(AgentSearchResult(
                 result_id=r.vector_id,
                 document_id=r.metadata.get("document_id", "doc"),
                 chunk_id=r.metadata.get("chunk_id", "chunk"),
                 score=r.score,
-                snippet=r.metadata.get("text", ""),
+                snippet=chunk_text,
                 source="knowledge_base",
                 metadata=r.metadata
             ))
@@ -295,6 +324,10 @@ try:
     conn.close()
 except Exception:
     pass
+
+
+# Global cache to store document extraction, chunking, and embedding times
+METRICS_CACHE = {}
 
 
 # =====================================================================
@@ -381,16 +414,23 @@ def list_workspaces(user_id: str = "admin"):
 
 @app.post("/api/documents/upload")
 async def upload_document(workspace_id: str, file: UploadFile = File(...)):
+    start_extraction = time.perf_counter()
     contents = await file.read()
-    text = contents.decode("utf-8", errors="ignore")
+
+    # Extract actual text content based on file type (DOCX, PDF, plain text)
+    text = _extract_text_from_file(contents, file.filename or "")
+    extraction_time = time.perf_counter() - start_extraction
+
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
 
     doc_id = f"doc-{str(uuid.uuid4())[:8]}"
-    checksum = str(hash(text))
+    import hashlib
+    checksum = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
     # Relational entry
     db_storage.create_document(doc_id, workspace_id, file.filename, checksum)
 
-    # background ingestion parsing
     # Chunking & Embeddings generation using EmbeddingAgent
     task_embed = Task(
         description="Index document content",
@@ -404,10 +444,17 @@ async def upload_document(workspace_id: str, file: UploadFile = File(...)):
             "collection": "default_wiki"
         }
     )
-    embedding_agent.execute(task_embed)
+    res = embedding_agent.execute(task_embed)
     db_storage.update_document_status(doc_id, "indexed")
 
-    return {"status": "success", "document_id": doc_id}
+    # Save to metrics cache
+    METRICS_CACHE[doc_id] = {
+        "extraction_time": extraction_time,
+        "chunking_time": res.metadata.get("chunking_time", 0.0) if res else 0.0,
+        "embedding_time": res.metadata.get("embedding_time", 0.0) if res else 0.0
+    }
+
+    return {"status": "success", "document_id": doc_id, "chars_extracted": len(text)}
 
 
 @app.get("/api/documents")
@@ -574,6 +621,7 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                 stream_adapter = chat_agent.execute(task)
 
                 # Stream chunks back over websocket
+                generation_start = time.perf_counter()
                 assistant_full_reply = ""
                 for token in stream_adapter.stream_tokens():
                     assistant_full_reply += token
@@ -585,6 +633,7 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                             for c in stream_adapter.get_citations()
                         ]
                     })
+                generation_time = time.perf_counter() - generation_start
 
                 # Push final metadata payload for developer panel
                 providers_list = ModelRegistry().list_providers()
@@ -594,35 +643,64 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                 sess_id = f"sess-{str(uuid.uuid4())[:8]}"
                 elapsed = time.perf_counter() - start_time
                 
+                # Expose real retrieval, prompt construction, and extraction times
+                retrieval_time = getattr(stream_adapter, "retrieval_time", 0.0)
+                prompt_res = getattr(stream_adapter, "prompt_response", None)
+                
+                system_prompt = ""
+                user_prompt = ""
+                final_prompt = ""
+                prompt_construction_time = 0.0
+                template_used = "general_chat"
+                
+                if prompt_res:
+                    system_prompt = prompt_res.prompt.system_prompt or ""
+                    user_prompt = prompt_res.prompt.user_prompt or ""
+                    final_prompt = prompt_res.prompt.rendered_text
+                    prompt_construction_time = prompt_res.rendering_time
+                    template_used = prompt_res.prompt.template_id or "general_chat"
+
+                citations = stream_adapter.get_citations()
+                extraction_time = 0.0
+                chunking_time = 0.0
+                embedding_time = 0.0
+                
+                if citations:
+                    first_doc = citations[0].document_id
+                    doc_metrics = METRICS_CACHE.get(first_doc, {})
+                    extraction_time = doc_metrics.get("extraction_time", 0.0)
+                    chunking_time = doc_metrics.get("chunking_time", 0.0)
+                    embedding_time = doc_metrics.get("embedding_time", 0.0)
+
                 retrieved_chunks = [
                     {
-                        "score": round(c.relevance_score if c.relevance_score else 0.85, 4),
-                        "document_name": f"Doc: {c.document_id}",
-                        "chunk_number": idx + 1,
-                        "snippet": f"Matching vector snippet from document ID: {c.document_id}. Text context chunks extracted from database search query relevance scoring.",
-                        "metadata": {"doc_id": c.document_id, "chunk_id": c.chunk_id},
+                        "document_name": c.metadata.get("document_name", f"Doc: {c.document_id}"),
+                        "chunk_id": c.chunk_id,
+                        "section_name": c.metadata.get("section", "General"),
+                        "similarity_score": round(c.relevance_score if c.relevance_score else 0.85, 4),
+                        "snippet": c.snippet,
                         "included_in_prompt": True
                     }
-                    for idx, c in enumerate(stream_adapter.get_citations())
+                    for idx, c in enumerate(citations)
                 ]
                 
                 workflow_trace = [
                     {"step": "User Request", "status": "Success", "time": "0.01s", "error": ""},
                     {"step": "Orchestrator Agent", "status": "Success", "time": "0.02s", "error": ""},
                     {"step": "Document Agent", "status": "Success", "time": "0.04s", "error": ""},
-                    {"step": "Embedding Agent", "status": "Success", "time": "0.08s", "error": ""},
-                    {"step": "Search Agent", "status": "Success", "time": "0.05s", "error": ""},
-                    {"step": "Chat Agent", "status": "Success", "time": "0.10s", "error": ""},
-                    {"step": "Model Provider", "status": "Success", "time": "0.12s", "error": ""},
-                    {"step": "Streaming Response", "status": "Success", "time": f"{elapsed:.2f}s", "error": ""}
+                    {"step": "Embedding Agent", "status": "Success", "time": f"{chunking_time+embedding_time:.4f}s", "error": ""},
+                    {"step": "Search Agent", "status": "Success", "time": f"{retrieval_time:.4f}s", "error": ""},
+                    {"step": "Chat Agent", "status": "Success", "time": f"{prompt_construction_time:.4f}s", "error": ""},
+                    {"step": "Model Provider", "status": "Success", "time": f"{generation_time:.4f}s", "error": ""},
+                    {"step": "Streaming Response", "status": "Success", "time": f"{elapsed:.4f}s", "error": ""}
                 ]
                 
                 event_logs = [
                     {"timestamp": datetime.utcnow().isoformat(), "event": "User Message Received"},
-                    {"timestamp": datetime.utcnow().isoformat(), "event": "Workspace isolation verified"},
+                    {"timestamp": datetime.utcnow().isoformat(), "event": f"Workspace isolation verified. Ingested Intent: {template_used}"},
                     {"timestamp": datetime.utcnow().isoformat(), "event": "Context registry memory source checked"},
-                    {"timestamp": datetime.utcnow().isoformat(), "event": "Search Agent triggered" if stream_adapter.get_citations() else "Direct Chat triggered"},
-                    {"timestamp": datetime.utcnow().isoformat(), "event": "Prompt built via default_chat_template"},
+                    {"timestamp": datetime.utcnow().isoformat(), "event": "Search Agent triggered" if citations else "Direct Chat triggered"},
+                    {"timestamp": datetime.utcnow().isoformat(), "event": f"Prompt built via template: {template_used}"},
                     {"timestamp": datetime.utcnow().isoformat(), "event": "Model inference start"},
                     {"timestamp": datetime.utcnow().isoformat(), "event": "Response streaming finished"}
                 ]
@@ -630,9 +708,9 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                 await websocket.send_json({
                     "metadata": {
                         "active_agent": "ChatAgent",
-                        "current_workflow": "RAG Document Query" if stream_adapter.get_citations() else "General Chat",
+                        "current_workflow": template_used.replace("_", " ").title(),
                         "selected_provider": selected_prov,
-                        "model_name": "llama3",
+                        "model_name": "phi3:mini",
                         "embedding_model": "nomic-embed-text",
                         "workspace": ws_id,
                         "conversation_id": conv_id,
@@ -643,31 +721,25 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                         "total_tokens": (len(message) + len(assistant_full_reply)) // 4,
                         "prompt_length": len(message),
                         "context_length": len(message) + 850,
-                        "response_time": f"{elapsed:.2f}s",
-                        "search_time": "0.05s" if stream_adapter.get_citations() else "0.00s",
-                        "embedding_time": "0.08s" if stream_adapter.get_citations() else "0.00s",
-                        "generation_time": f"{elapsed:.2f}s",
-                        "memory_usage": "14.2 MB",
-                        "cpu_usage": "2.4%",
+                        "response_time": f"{elapsed:.4f}s",
+                        "extraction_time": f"{extraction_time:.4f}s",
+                        "chunking_time": f"{chunking_time:.4f}s",
+                        "embedding_time": f"{embedding_time:.4f}s",
+                        "retrieval_time": f"{retrieval_time:.4f}s",
+                        "prompt_construction_time": f"{prompt_construction_time:.4f}s",
+                        "generation_time": f"{generation_time:.4f}s",
+                        "total_request_duration": f"{elapsed:.4f}s",
+                        "prompt_diagnostics": {
+                            "retrieved_chunk_count": len(citations),
+                            "prompt_size_chars": len(final_prompt),
+                            "context_size_chars": sum(len(c.snippet) for c in citations),
+                            "system_prompt": system_prompt,
+                            "user_prompt": user_prompt,
+                            "final_assembled_prompt": final_prompt
+                        },
                         "retrieved_chunks": retrieved_chunks,
                         "workflow_trace": workflow_trace,
-                        "event_logs": event_logs,
-                        "model_info": {
-                            "current_provider": selected_prov,
-                            "model_name": "llama3",
-                            "temperature": 0.7,
-                            "max_tokens": 2048,
-                            "context_window": 8192,
-                            "streaming_enabled": True,
-                            "fallback_provider": "mock-fallback"
-                        },
-                        "search_debug": {
-                            "search_query": message,
-                            "top_k": 3,
-                            "similarity_threshold": 0.75,
-                            "retrieved_documents": [c.document_id for c in stream_adapter.get_citations()],
-                            "retrieved_chunks_count": len(stream_adapter.get_citations())
-                        }
+                        "event_logs": event_logs
                     }
                 })
 

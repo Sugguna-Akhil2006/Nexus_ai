@@ -75,6 +75,7 @@ class Citation:
         document_id: Reference document ID.
         chunk_id: Reference chunk block ID.
         relevance_score: Calculated score metrics.
+        snippet: Original retrieved chunk text.
         metadata: Extra citation metadata.
     """
     citation_id: str
@@ -82,6 +83,7 @@ class Citation:
     document_id: str
     chunk_id: str
     relevance_score: float
+    snippet: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -510,7 +512,88 @@ class ChatAgent(BaseAgent):
     def initialize(self) -> None:
         """Initializes Chat agent."""
         super().initialize()
-        # Ensure default templates are registered
+        # Ensure workflow templates are registered
+        templates = [
+            PromptTemplate(
+                template_id="general_chat",
+                name="General Chat Template",
+                version="1.0.0",
+                description="Helpful and intelligent AI assistant role",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are a helpful and intelligent AI assistant.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "{query}", 2.0, True, {"role": "user"})
+                ]
+            ),
+            PromptTemplate(
+                template_id="document_qa",
+                name="Document QA Template",
+                version="1.0.0",
+                description="Answers using only retrieved context, no fabrication, includes citations",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are a precise Document QA assistant. Answer the user's questions based ONLY on the retrieved document context below. If the answer cannot be derived from the context, state clearly: 'I cannot answer this based on the provided context.' Do not fabricate any information. Include citations (source name/document ID) when referencing facts from the context.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "Context:\n{context}\n\nQuery: {query}", 2.0, True, {"role": "user"})
+                ]
+            ),
+            PromptTemplate(
+                template_id="resume_review",
+                name="Resume Review Template",
+                version="1.0.0",
+                description="Expert Technical Recruiter and Resume Reviewer",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are an expert Technical Recruiter and Resume Reviewer. Review and answer questions about the candidate's resume using ONLY the provided resume context below. Highlight their education, skills, projects, and experience as found in the text. If any information is missing or cannot be derived, explicitly state: 'Information not available in the resume.' Do not fabricate or assume skills or experience. Reference page/section citations if available.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "Resume Context:\n{context}\n\nQuery: {query}", 2.0, True, {"role": "user"})
+                ]
+            ),
+            PromptTemplate(
+                template_id="research_assistant",
+                name="Research Assistant Template",
+                version="1.0.0",
+                description="Scientific Research Assistant focusing on paper structure",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are a scientific Research Assistant. Analyze the provided research paper excerpts and answer the query using ONLY this context. Focus on the methodology, results, abstract, and conclusions. If the answer is not contained in the excerpts, state: 'The provided research excerpts do not contain this information.' Never make up research findings.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "Research Paper Context:\n{context}\n\nQuery: {query}", 2.0, True, {"role": "user"})
+                ]
+            ),
+            PromptTemplate(
+                template_id="code_analysis",
+                name="Code Analysis Template",
+                version="1.0.0",
+                description="Expert Software Engineer and Code Analyzer",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are an expert Software Engineer and Code Analyzer. Review the provided source code, classes, functions, and README context to answer the user's questions. Base your analysis ONLY on the provided code snippets. If you cannot find the relevant code/functions in the context, state: 'The provided code snippets do not contain this implementation.' Do not fabricate code that is not in the context.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "Code Snippets Context:\n{context}\n\nQuery: {query}", 2.0, True, {"role": "user"})
+                ]
+            ),
+            PromptTemplate(
+                template_id="meeting_summary",
+                name="Meeting Summary Template",
+                version="1.0.0",
+                description="Summarizes attendees, decisions, and action items from transcripts",
+                author="System",
+                variables=[],
+                sections=[
+                    PromptSection("sys", "System Context", "You are a precise Meeting Summary assistant. Answer questions or summarize meeting transcripts/minutes based ONLY on the provided meeting context. Extract action items, attendees, decisions, and key points. If not mentioned in the context, explicitly say: 'This was not discussed in the provided meeting notes.' Do not fabricate attendees or decisions.", 1.0, False, {"role": "system"}),
+                    PromptSection("usr", "User Message", "Meeting Context:\n{context}\n\nQuery: {query}", 2.0, True, {"role": "user"})
+                ]
+            )
+        ]
+        for t in templates:
+            try:
+                self.prompt_registry.register_template(t)
+            except Exception:
+                pass
+
+        # Duplicate register for compatibility with old default template ID
         try:
             self.prompt_registry.register_template(PromptTemplate(
                 template_id="default_chat_template",
@@ -526,6 +609,21 @@ class ChatAgent(BaseAgent):
             ))
         except Exception:
             pass
+
+    def classify_intent(self, query: str, has_context: bool = False) -> str:
+        """Classifies the query into one of the 6 workflow template IDs."""
+        query_lower = query.lower()
+        if any(w in query_lower for w in ["resume", "cv", "portfolio", "hire", "recruiting", "recruit", "education", "experience", "skills", "projects", "job description", "candidate"]):
+            return "resume_review"
+        if any(w in query_lower for w in ["research", "paper", "abstract", "study", "scientific", "journal", "thesis", "methodology", "conclusions"]):
+            return "research_assistant"
+        if any(w in query_lower for w in ["code", "function", "class", "syntax", "python", "javascript", "refactor", "bug", "compile", "programming", "implementation", "readme"]):
+            return "code_analysis"
+        if any(w in query_lower for w in ["meeting", "minutes", "transcript", "notes", "summary of meeting", "attendees", "action items"]):
+            return "meeting_summary"
+        if has_context:
+            return "document_qa"
+        return "general_chat"
 
     def validate_task(self, task: Task) -> None:
         super().validate_task(task)
@@ -607,12 +705,14 @@ class ChatAgent(BaseAgent):
 
             # Trigger Search Agent if vector search is requested
             citations = []
+            retrieval_time = 0.0
             if ret_options.get("enable_search", False):
                 # Search matching documents snippet
                 query_term = message
                 from backend.agents.search import SearchAgent
                 search_agent = SearchAgent()
                 try:
+                    search_start = time.perf_counter()
                     search_res = search_agent.execute(Task(
                         description="Internal search",
                         metadata={
@@ -623,6 +723,7 @@ class ChatAgent(BaseAgent):
                             "top_k": 3
                         }
                     ))
+                    retrieval_time = time.perf_counter() - search_start
                     # Convert SearchResults to ContextSection and Citation models
                     for idx, res in enumerate(search_res.results):
                         cite_id = f"cite-{idx}"
@@ -631,7 +732,9 @@ class ChatAgent(BaseAgent):
                             source=res.source,
                             document_id=res.document_id,
                             chunk_id=res.chunk_id,
-                            relevance_score=res.score
+                            relevance_score=res.score,
+                            snippet=res.snippet,
+                            metadata=res.metadata
                         ))
                         mock_sections.append(ContextSection(
                             section_id=res.result_id,
@@ -652,23 +755,28 @@ class ChatAgent(BaseAgent):
             ctx_obj = dataclasses.replace(context_response.context, sections=mock_sections)
 
             # 2. Render Prompt using Prompt Engine
+            # Classify intent to select the correct template
+            has_context = len(citations) > 0
+            resolved_template_id = self.classify_intent(message, has_context=has_context)
+
             self._publish_event("chat.prompt.generated", request_id=req.request_id)
             prompt_req = PromptRequest(
                 context=ctx_obj,
-                template="default_chat_template",
+                template=resolved_template_id,
                 variables={"query": message}
             )
             prompt_res = self.prompt_registry.render(prompt_req)
 
             # 3. Model Inference via Model Interface
-            model_id = model_prefs.get("model", "mock-chat-model")
-            self._publish_event("chat.model.invoked", model=model_id)
-
-            # Lookup Model Provider in ModelRegistry
+            # Resolve actual model name from the live provider state
             provider_id = self.model_registry.list_providers()
             if not provider_id:
                 raise ChatValidationError("No model providers registered in Model Interface.")
             provider = self.model_registry.get_provider(provider_id[0])
+
+            provider_model = getattr(getattr(provider, "provider_state", None), "model", None)
+            model_id = model_prefs.get("model") or provider_model or "phi3:mini"
+            self._publish_event("chat.model.invoked", model=model_id)
 
             # Prepare chat message messages list
             chat_messages = []
@@ -748,12 +856,13 @@ class ChatAgent(BaseAgent):
 
             # Trigger Search Agent to find matching context if enabled
             citations = []
-            context_text = ""
-            
+            mock_sections = []
+            retrieval_time = 0.0
             from backend.agents.search import SearchRegistry
             if SearchRegistry().list_providers():
                 try:
                     from backend.agents.search import SearchAgent
+                    search_start = time.perf_counter()
                     search_res = SearchAgent().execute(Task(
                         description="Internal search",
                         metadata={
@@ -764,26 +873,49 @@ class ChatAgent(BaseAgent):
                             "top_k": 2
                         }
                     ))
+                    retrieval_time = time.perf_counter() - search_start
                     for idx, res in enumerate(search_res.results):
                         citations.append(Citation(
                             citation_id=f"cite-{idx}",
                             source=res.source,
                             document_id=res.document_id,
                             chunk_id=res.chunk_id,
-                            relevance_score=res.score
+                            relevance_score=res.score,
+                            snippet=res.snippet,
+                            metadata=res.metadata
                         ))
-                        context_text += f"\n- {res.snippet}"
+                        mock_sections.append(ContextSection(
+                            section_id=res.result_id,
+                            source=ContextSource.VECTOR,
+                            title=f"Source Document {res.document_id}",
+                            content=res.snippet,
+                            relevance_score=res.score,
+                            token_count=len(res.snippet) // 4
+                        ))
                 except Exception as e:
                     self.logger.warning("Search agent retrieval failed in stream: %s", e)
 
-            # Render context into default prompt
-            prompt_payload = message
-            if context_text:
-                prompt_payload = (
-                    f"Answer the query based on the following context snippets.\n"
-                    f"Context: {context_text}\n"
-                    f"Query: {message}"
-                )
+            # Build mock context response object for prompt rendering
+            ctx_request = ContextRequest(
+                user=user_id,
+                max_tokens=2048,
+                required_sources=[],
+                optional_sources=[]
+            )
+            context_response = self.context_registry.collect(ctx_request)
+            import dataclasses
+            ctx_obj = dataclasses.replace(context_response.context, sections=mock_sections)
+
+            # Classify intent to select the correct template
+            has_context = len(citations) > 0
+            resolved_template_id = self.classify_intent(message, has_context=has_context)
+            
+            prompt_req = PromptRequest(
+                context=ctx_obj,
+                template=resolved_template_id,
+                variables={"query": message}
+            )
+            prompt_res = self.prompt_registry.render(prompt_req)
 
             # Lookup Model Provider in ModelRegistry
             provider_ids = self.model_registry.list_providers()
@@ -791,10 +923,14 @@ class ChatAgent(BaseAgent):
                 raise ChatValidationError("No model providers registered in Model Interface.")
             provider = self.model_registry.get_provider(provider_ids[0])
 
+            # Resolve actual model name from the live provider state
+            provider_model = getattr(getattr(provider, "provider_state", None), "model", None)
+            resolved_model = model_prefs.get("model") or provider_model or "phi3:mini"
+
             inf_req = InferenceRequest(
-                model=model_prefs.get("model", "mock-chat-model"),
-                messages=[{"role": "user", "content": prompt_payload}],
-                prompt=prompt_payload
+                model=resolved_model,
+                messages=prompt_res.prompt.messages,
+                prompt=prompt_res.prompt.rendered_text
             )
 
             try:
@@ -816,6 +952,8 @@ class ChatAgent(BaseAgent):
                     return self.citations_list
 
             response_adapter = ProviderStreamingResponse(stream_iter, citations)
+            response_adapter.prompt_response = prompt_res
+            response_adapter.retrieval_time = retrieval_time
 
             # Append user message sequence
             user_msg = ConversationMessage(

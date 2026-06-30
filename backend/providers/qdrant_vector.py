@@ -213,7 +213,7 @@ class QdrantVectorProvider(VectorProvider):
                     vector_id=rec.vector_id,
                     score=score,
                     metadata=rec.metadata,
-                    payload={"snippet": rec.metadata.get("snippet", "")}
+                    payload={"text": rec.metadata.get("text", "")}
                 ))
 
             matches.sort(key=lambda x: x.score, reverse=True)

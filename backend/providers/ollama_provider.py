@@ -58,7 +58,7 @@ class OllamaConfiguration:
     """
     host: str = "localhost"
     port: int = 11434
-    timeout: float = 30.0
+    timeout: float = 120.0
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     metadata: Dict[str, Any] = field(default_factory=dict)
 

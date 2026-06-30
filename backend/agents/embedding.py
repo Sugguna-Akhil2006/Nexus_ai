@@ -216,6 +216,144 @@ class ParagraphChunkingStrategy(ChunkingStrategy):
         return chunks
 
 
+class SemanticChunkingStrategy(ChunkingStrategy):
+    """Semantic chunking strategy that splits documents by logical domain headings."""
+
+    def chunk(self, text: str) -> List[str]:
+        tuples = self.chunk_with_metadata(text)
+        return [content for content, _ in tuples]
+
+    def chunk_with_metadata(self, text: str) -> List[tuple[str, str]]:
+        if not text or not text.strip():
+            return []
+
+        text_lower = text.lower()
+        
+        is_code = (
+            "def " in text or 
+            "class " in text or 
+            "const " in text or 
+            "import " in text or 
+            "function " in text or 
+            ("{" in text and "}" in text and ";" in text)
+        )
+        
+        is_resume = (
+            "education" in text_lower and 
+            ("experience" in text_lower or "employment" in text_lower or "work history" in text_lower) and 
+            ("skills" in text_lower or "projects" in text_lower)
+        )
+        
+        is_research = (
+            "abstract" in text_lower and 
+            ("introduction" in text_lower or "methodology" in text_lower or "results" in text_lower) and 
+            "conclusion" in text_lower
+        )
+
+        chunks = []
+        if is_code:
+            lines = text.split("\n")
+            current_chunk = []
+            current_section = "General"
+            
+            for line in lines:
+                line_stripped = line.strip()
+                if line_stripped.startswith("class "):
+                    if current_chunk:
+                        chunks.append(("\n".join(current_chunk), current_section))
+                        current_chunk = []
+                    current_section = "Classes"
+                elif line_stripped.startswith("def ") or line_stripped.startswith("async def "):
+                    if current_chunk:
+                        chunks.append(("\n".join(current_chunk), current_section))
+                        current_chunk = []
+                    current_section = "Functions"
+                elif line_stripped.startswith("#") or line_stripped.startswith("//") or line_stripped.startswith("/*"):
+                    if current_chunk:
+                        chunks.append(("\n".join(current_chunk), current_section))
+                        current_chunk = []
+                    current_section = "Comments"
+                elif "readme" in line_stripped.lower():
+                    if current_chunk:
+                        chunks.append(("\n".join(current_chunk), current_section))
+                        current_chunk = []
+                    current_section = "README"
+                
+                current_chunk.append(line)
+                
+            if current_chunk:
+                chunks.append(("\n".join(current_chunk), current_section))
+                
+        elif is_resume:
+            sections_regex = r"(?i)\b(personal information|contact|education|skills|experience|employment|work history|projects|certifications|awards|summary)\b"
+            matches = list(re.finditer(sections_regex, text))
+            if not matches:
+                return self._paragraph_fallback(text, "Resume")
+                
+            last_idx = 0
+            current_section = "Personal Information"
+            for match in matches:
+                start = match.start()
+                if start > last_idx:
+                    content = text[last_idx:start].strip()
+                    if content:
+                        chunks.append((content, current_section))
+                current_section = match.group(0).title()
+                last_idx = start
+            
+            content = text[last_idx:].strip()
+            if content:
+                chunks.append((content, current_section))
+                
+        elif is_research:
+            sections_regex = r"(?i)\b(abstract|introduction|methodology|results|discussion|conclusion|references|related work)\b"
+            matches = list(re.finditer(sections_regex, text))
+            if not matches:
+                return self._paragraph_fallback(text, "Research Paper")
+                
+            last_idx = 0
+            current_section = "Introduction"
+            for match in matches:
+                start = match.start()
+                if start > last_idx:
+                    content = text[last_idx:start].strip()
+                    if content:
+                        chunks.append((content, current_section))
+                current_section = match.group(0).title()
+                last_idx = start
+            
+            content = text[last_idx:].strip()
+            if content:
+                chunks.append((content, current_section))
+        else:
+            return self._paragraph_fallback(text, "General")
+
+        valid_chunks = []
+        for content, section in chunks:
+            content_stripped = content.strip()
+            if not content_stripped:
+                continue
+            if len(content_stripped) > 1500:
+                paragraphs = content_stripped.split("\n\n")
+                for sub_idx, para in enumerate(paragraphs):
+                    para_stripped = para.strip()
+                    if para_stripped:
+                        valid_chunks.append((para_stripped, f"{section} (Part {sub_idx+1})"))
+            else:
+                valid_chunks.append((content_stripped, section))
+                
+        return valid_chunks
+
+    def _paragraph_fallback(self, text: str, domain_name: str) -> List[tuple[str, str]]:
+        paragraphs = text.split("\n\n")
+        chunks = []
+        for idx, para in enumerate(paragraphs):
+            para_stripped = para.strip()
+            if para_stripped:
+                chunks.append((para_stripped, f"{domain_name} Section {idx+1}"))
+        return chunks
+
+
 # =====================================================================
 # Validation Utilities
 # =====================================================================
@@ -420,7 +558,7 @@ class EmbeddingAgent(BaseAgent):
             ws_id = task.metadata.get("workspace_id")
             text = task.metadata.get("text")
             model = task.metadata.get("model", "mock-embed-small")
-            strategy_name = task.metadata.get("chunking_strategy", "fixed")
+            strategy_name = task.metadata.get("chunking_strategy", "semantic")
             namespace = task.metadata.get("namespace", "default")
             req_metadata = task.metadata.get("metadata", {})
             force_reindex = task.metadata.get("force_reindex", False)
@@ -474,6 +612,8 @@ class EmbeddingAgent(BaseAgent):
                 strategy = SentenceChunkingStrategy()
             elif strategy_name == "paragraph":
                 strategy = ParagraphChunkingStrategy()
+            elif strategy_name == "semantic":
+                strategy = SemanticChunkingStrategy()
             else:
                 raise EmbeddingValidationError(f"Invalid chunking strategy: '{strategy_name}'.")
 
@@ -491,19 +631,38 @@ class EmbeddingAgent(BaseAgent):
                 except Exception as e:
                     self.logger.warning("Could not delete old vectors during reindexing: %s", e)
 
-            # Perform Chunking
-            text_chunks = strategy.chunk(text)
+            # Perform Chunking with metadata support
+            chunking_start = time.perf_counter()
+            filename = task.metadata.get("filename", "document")
             chunks = []
-            for idx, c_text in enumerate(text_chunks):
-                validate_chunk_size(c_text)
-                c_id = f"{doc_id}-chunk-{idx}"
-                chunks.append(EmbeddingChunk(
-                    chunk_id=c_id,
-                    sequence_number=idx,
-                    content=c_text,
-                    token_count=len(c_text) // 4  # heuristic approximation
-                ))
-                self._publish_event("embedding.chunk.created", chunk_id=c_id)
+            if hasattr(strategy, "chunk_with_metadata"):
+                chunk_tuples = strategy.chunk_with_metadata(text)
+                for idx, (c_text, sec_name) in enumerate(chunk_tuples):
+                    validate_chunk_size(c_text)
+                    c_id = f"{doc_id}-chunk-{idx}"
+                    chunks.append(EmbeddingChunk(
+                        chunk_id=c_id,
+                        sequence_number=idx,
+                        content=c_text,
+                        token_count=len(c_text) // 4,
+                        metadata={"section": sec_name}
+                    ))
+                    self._publish_event("embedding.chunk.created", chunk_id=c_id)
+            else:
+                text_chunks = strategy.chunk(text)
+                for idx, c_text in enumerate(text_chunks):
+                    validate_chunk_size(c_text)
+                    c_id = f"{doc_id}-chunk-{idx}"
+                    chunks.append(EmbeddingChunk(
+                        chunk_id=c_id,
+                        sequence_number=idx,
+                        content=c_text,
+                        token_count=len(c_text) // 4,
+                        metadata={"section": "General"}
+                    ))
+                    self._publish_event("embedding.chunk.created", chunk_id=c_id)
+            chunking_time = time.perf_counter() - chunking_start
+            embedding_start = time.perf_counter()
 
             # Generate Embeddings
             texts_to_embed = [c.content for c in chunks]
@@ -538,7 +697,13 @@ class EmbeddingAgent(BaseAgent):
                     vector_id=v_id,
                     collection=col_id,
                     embedding=embeddings[idx],
-                    metadata={"document_id": doc_id, "chunk_id": chunk.chunk_id, "text": chunk.content},
+                    metadata={
+                        "document_id": doc_id,
+                        "chunk_id": chunk.chunk_id,
+                        "text": chunk.content,
+                        "document_name": filename,
+                        "section": chunk.metadata.get("section", "General")
+                    },
                     namespace=namespace
                 ))
                 records.append(EmbeddingRecord(
@@ -568,6 +733,7 @@ class EmbeddingAgent(BaseAgent):
                     "records": records
                 }
 
+            embedding_time = time.perf_counter() - embedding_start
             duration = time.perf_counter() - start_time
             self._publish_event("embedding.completed", document_id=doc_id)
 
@@ -578,7 +744,11 @@ class EmbeddingAgent(BaseAgent):
                 failed_chunks=0,
                 processing_time=duration,
                 provider=provider_id,
-                metadata={"version": current_version}
+                metadata={
+                    "version": current_version,
+                    "chunking_time": chunking_time,
+                    "embedding_time": embedding_time
+                }
             )
 
         elif action == "delete_document_embeddings":
