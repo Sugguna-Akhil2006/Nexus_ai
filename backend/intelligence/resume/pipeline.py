@@ -30,12 +30,14 @@ class PipelineExecutionRunner:
         start = time.perf_counter()
         state.start_stage(StageNames.PARSER)
         try:
-            parser = ResumeParser()
-            parsed_data = parser.parse(context.contents, context.filename)
-            context.parsed_resume_data = parsed_data
+            if not context.parsed_resume_data:
+                parser = ResumeParser()
+                parsed_data = parser.parse(context.contents, context.filename)
+                context.parsed_resume_data = parsed_data
             
-            ats = ATSEngine()
-            context.canonical_resume = ats._map_data_to_canonical(parsed_data)
+            if not context.canonical_resume:
+                ats = ATSEngine()
+                context.canonical_resume = ats._map_data_to_canonical(context.parsed_resume_data)
             
             state.complete_stage(StageNames.PARSER, time.perf_counter() - start)
         except Exception as e:
@@ -78,24 +80,21 @@ class PipelineExecutionRunner:
             res = ats.analyze_ats(legacy_data, raw_text)
             
             # Map legacy ATSResult properties to ATSReport
-            category_scores = []
-            for cat in res.category_scores:
-                from backend.intelligence.resume.models import ATSCategoryScore
-                category_scores.append(ATSCategoryScore(
-                    name=cat.name,
-                    weight=cat.weight,
-                    max_score=cat.max_score,
-                    current_score=cat.current_score,
-                    reason=cat.reason,
-                    improvement_suggestions=cat.improvement_suggestions
-                ))
+            from backend.intelligence.resume.models import ATSCategoryScore
+            category_scores = [
+                ATSCategoryScore(name="Section Completeness", weight=0.2, max_score=100, current_score=res.completeness_score, reason=""),
+                ATSCategoryScore(name="Formatting Quality", weight=0.2, max_score=100, current_score=res.formatting_score, reason=""),
+                ATSCategoryScore(name="Keyword Coverage", weight=0.2, max_score=100, current_score=res.keyword_density_score, reason=""),
+                ATSCategoryScore(name="Experience Quality", weight=0.2, max_score=100, current_score=res.quantification_score, reason=""),
+                ATSCategoryScore(name="Readability", weight=0.2, max_score=100, current_score=res.verb_metric_score, reason="")
+            ]
             context.ats_report = ATSReport(
                 overall_score=res.score,
                 category_scores=category_scores,
-                strengths=res.strengths,
-                weaknesses=res.weaknesses,
-                priority_improvements=res.priority_improvements,
-                detailed_recommendations=res.detailed_recommendations
+                strengths=[f"Action verbs found: {', '.join(res.action_verbs_found)}"] if res.action_verbs_found else [],
+                weaknesses=[f"Missing sections: {', '.join(res.missing_sections)}"] if res.missing_sections else [],
+                priority_improvements=[f"Missing keywords: {', '.join(res.missing_keywords)}"] if res.missing_keywords else [],
+                detailed_recommendations=[]
             )
             
             state.complete_stage(StageNames.ATS_ENGINE, time.perf_counter() - start)

@@ -26,3 +26,8 @@ from backend.intelligence.resume.models import (
     ResumeAnalysis,
     ResumeReport
 )
+
+# Register with global framework registry
+from backend.intelligence.core.registry import IntelligenceRegistry
+from backend.intelligence.resume.module import ResumeModule
+IntelligenceRegistry().register(ResumeModule())

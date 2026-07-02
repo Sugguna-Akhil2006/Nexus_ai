@@ -147,6 +147,12 @@ class ResumeAgent(BaseAgent):
             )
 
             # Map raw resume input
+            if isinstance(resume, dict):
+                if "personal_info" in resume:
+                    resume = Resume.model_validate(resume)
+                else:
+                    resume = ResumeData.model_validate(resume)
+
             if isinstance(resume, bytes):
                 context.contents = resume
             elif isinstance(resume, ResumeData):

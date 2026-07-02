@@ -61,13 +61,16 @@ class WorkflowCoordinator:
         self._execute_with_retry(self.runner.run_consolidation_stage, context, state, StageNames.CONSOLIDATOR)
 
         # Publish final workflow outcome
-        # If the critical parser stage fails and we have no completed stages, the run is failed
-        if StageNames.PARSER in state.errors and not state.completed_stages:
+        # If the critical parser stage fails, the run is failed
+        if StageNames.PARSER in state.errors:
             state.pipeline_status = "failed"
             self._publish_workflow_event("resume.workflow.failed", context, state)
         else:
             state.pipeline_status = "completed"
             self._publish_workflow_event("resume.workflow.completed", context, state)
+
+        if context.final_report:
+            context.final_report.pipeline_metadata["pipeline_status"] = state.pipeline_status
 
         return state
 
