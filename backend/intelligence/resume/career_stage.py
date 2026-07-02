@@ -1,6 +1,7 @@
 """Career Stage and specialization classification heuristics for structured candidate profiles."""
 
 from typing import Tuple
+import re
 from backend.intelligence.resume.models import Resume
 from backend.intelligence.resume.validators import parse_date_safely
 
@@ -27,6 +28,20 @@ class CareerStageClassifier:
             if start and end:
                 months = (end.year - start.year) * 12 + (end.month - start.month)
                 total_months += max(1.0, float(months))
+            else:
+                for val_str in [getattr(exp, "start_date", ""), getattr(exp, "end_date", ""), getattr(exp, "duration", "")]:
+                    if not val_str:
+                        continue
+                    dur_str = str(val_str).lower()
+                    num_match = re.search(r"(\d+(?:\.\d+)?)\s*(year|yr|month|mon)", dur_str)
+                    if num_match:
+                        val = float(num_match.group(1))
+                        unit = num_match.group(2)
+                        if "year" in unit or "yr" in unit:
+                            total_months += val * 12
+                        else:
+                            total_months += val
+                        break
             
             role_title = (exp.role or "").lower()
             if "intern" not in role_title and "trainee" not in role_title:
