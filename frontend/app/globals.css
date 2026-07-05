@@ -1,0 +1,244 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background:           var(--background);
+  --color-foreground:           var(--foreground);
+  --color-card:                 var(--card);
+  --color-card-foreground:      var(--card-foreground);
+  --color-popover:              var(--popover);
+  --color-popover-foreground:   var(--popover-foreground);
+  --color-primary:              var(--primary);
+  --color-primary-foreground:   var(--primary-foreground);
+  --color-secondary:            var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:                var(--muted);
+  --color-muted-foreground:     var(--muted-foreground);
+  --color-accent:               var(--accent);
+  --color-accent-foreground:    var(--accent-foreground);
+  --color-destructive:          var(--destructive);
+  --color-border:               var(--border);
+  --color-input:                var(--input);
+  --color-ring:                 var(--ring);
+
+  /* Stitch Custom Color Theme Variables */
+  --color-surface:                    var(--surface);
+  --color-surface-container-low:     var(--surface-container-low);
+  --color-surface-container:         var(--surface-container);
+  --color-surface-container-high:    var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-container-lowest:  var(--surface-container-lowest);
+  --color-on-surface:                var(--on-surface);
+  --color-on-surface-variant:        var(--on-surface-variant);
+  --color-outline:                   var(--outline);
+  --color-outline-variant:           var(--outline-variant);
+  --color-primary-container:         var(--primary-container);
+  --color-on-primary-container:      var(--on-primary-container);
+
+  --color-sidebar:                    var(--sidebar);
+  --color-sidebar-foreground:         var(--sidebar-foreground);
+  --color-sidebar-primary:            var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:             var(--sidebar-accent);
+  --color-sidebar-accent-foreground:  var(--sidebar-accent-foreground);
+  --color-sidebar-border:             var(--sidebar-border);
+  --color-sidebar-ring:               var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm:  calc(var(--radius) * 0.5);
+  --radius-md:  calc(var(--radius) * 0.75);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+}
+
+/* ── Light mode ──────────────────────────────────────────── */
+:root {
+  --background:            #ffffff;
+  --foreground:            #0a0a0a;
+
+  --card:                  #ffffff;
+  --card-foreground:       #0a0a0a;
+
+  --popover:               #ffffff;
+  --popover-foreground:    #0a0a0a;
+
+  --primary:               #0a0a0a;
+  --primary-foreground:    #fafafa;
+
+  --secondary:             #f5f5f5;
+  --secondary-foreground:  #171717;
+
+  --muted:                 #f5f5f5;
+  --muted-foreground:      #737373;
+
+  --accent:                #f5f5f5;
+  --accent-foreground:     #171717;
+
+  --destructive:           #ef4444;
+
+  --border:                rgba(0, 0, 0, 0.06);
+  --input:                 rgba(0, 0, 0, 0.06);
+  --ring:                  #3b82f6;
+
+  --radius:                0.5rem;
+
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+
+  --sidebar:                    #fafafa;
+  --sidebar-foreground:         #0a0a0a;
+  --sidebar-primary:            #0a0a0a;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent:             #f0f0f0;
+  --sidebar-accent-foreground:  #0a0a0a;
+  --sidebar-border:             #e5e5e5;
+  --sidebar-ring:               #3b82f6;
+
+  /* Fallback Stitch colors for root */
+  --surface:                    #ffffff;
+  --surface-container-low:     #f8f8f9;
+  --surface-container:         #f0f0f2;
+  --surface-container-high:    #e8e8ea;
+  --surface-container-highest: #dfdfe2;
+  --surface-container-lowest:  #ffffff;
+  --on-surface:                #171717;
+  --on-surface-variant:        #737373;
+  --outline:                   #8c909f;
+  --outline-variant:           #e5e5e5;
+  --primary-container:         #4d8eff;
+  --on-primary-container:      #00285d;
+}
+
+/* ── Dark mode ───────────────────────────────────────────── */
+.dark {
+  --background:            #131315;
+  --foreground:            #e5e1e4;
+
+  --card:                  #1c1b1d;
+  --card-foreground:       #e5e1e4;
+
+  --popover:               #1c1b1d;
+  --popover-foreground:    #e5e1e4;
+
+  --primary:               #3b82f6;
+  --primary-foreground:    #ffffff;
+
+  --secondary:             #201f22;
+  --secondary-foreground:  #e5e1e4;
+
+  --muted:                 #1c1b1d;
+  --muted-foreground:      #c2c6d6;
+
+  --accent:                #201f22;
+  --accent-foreground:     #e5e1e4;
+
+  --destructive:           #f87171;
+
+  --border:                #424754;
+  --input:                 #424754;
+  --ring:                  #3b82f6;
+
+  --chart-1: #60a5fa;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+
+  --sidebar:                    #131315;
+  --sidebar-foreground:         #e5e1e4;
+  --sidebar-primary:            #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #201f22;
+  --sidebar-accent-foreground:  #e5e1e4;
+  --sidebar-border:             #424754;
+  --sidebar-ring:               #3b82f6;
+
+  /* Stitch Custom Color Themes */
+  --surface:                    #131315;
+  --surface-container-low:     #1c1b1d;
+  --surface-container:         #201f22;
+  --surface-container-high:    #2a2a2c;
+  --surface-container-highest: #353437;
+  --surface-container-lowest:  #0e0e10;
+  --on-surface:                #e5e1e4;
+  --on-surface-variant:        #c2c6d6;
+  --outline:                   #8c909f;
+  --outline-variant:           #424754;
+  --primary-container:         #4d8eff;
+  --on-primary-container:      #00285d;
+}
+
+/* ── Base ────────────────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply border-border;
+  }
+
+  html {
+    @apply font-sans antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-y: scroll;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+    line-height: 1.2;
+  }
+  h1 { font-weight: 600; }
+  h2 { font-weight: 600; }
+  h3 { font-weight: 500; }
+  h4, h5, h6 { font-weight: 500; }
+
+  ::selection {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: inherit;
+  }
+}
+
+/* ── Utilities ───────────────────────────────────────────── */
+@layer utilities {
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    min-width: 20px;
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+  }
+}
