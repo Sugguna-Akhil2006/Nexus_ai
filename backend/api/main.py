@@ -369,6 +369,13 @@ app.include_router(resume_router)
 from backend.api.workflow_routes import router as workflow_router
 app.include_router(workflow_router)
 
+from backend.api.github_routes import router as github_router
+app.include_router(github_router)
+
+from backend.api.intelligence.router import router as gateway_router
+app.include_router(gateway_router)
+
+
 
 @app.post("/api/auth/register")
 def register_user(req: RegisterRequest):

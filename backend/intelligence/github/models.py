@@ -146,3 +146,40 @@ class RepositoryHealthReport(BaseModel):
     recommendations: List[RecommendationItem] = Field(default_factory=list)
     confidence_score: float
     analyzed_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# --- Prompt 5: GitHub Intelligence Product Models ---
+
+class DeveloperSkillEvidence(BaseModel):
+    """Evidence of a specific developer skill identified during analysis."""
+    skill_name: str
+    experience_level: str  # Beginner, Intermediate, Expert
+    evidence_description: str
+    associated_files: List[str] = Field(default_factory=list)
+
+
+class GitHubIntelligenceReport(BaseModel):
+    """Consolidated product-level engineering and health report for GitHub repositories."""
+    report_id: str
+    repository: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    knowledge_profile_version: str = "1.0"
+    
+    # Report Sections
+    executive_summary: str
+    repository_overview: Dict[str, Any] = Field(default_factory=dict)
+    technology_stack: Dict[str, Any] = Field(default_factory=dict)
+    architecture_style: str
+    engineering_quality: Dict[str, Any] = Field(default_factory=dict)
+    repository_health: Dict[str, Any] = Field(default_factory=dict)
+    documentation_quality: Dict[str, Any] = Field(default_factory=dict)
+    strengths: List[str] = Field(default_factory=list)
+    engineering_risks: List[str] = Field(default_factory=list)
+    improvement_roadmap: List[str] = Field(default_factory=list)
+    developer_skill_evidence: List[DeveloperSkillEvidence] = Field(default_factory=list)
+    knowledge_profile_updates: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Telemetry and Console Details
+    pipeline_stage: str = "Completed"
+    execution_metrics: Dict[str, float] = Field(default_factory=dict)
+

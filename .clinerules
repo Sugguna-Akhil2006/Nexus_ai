@@ -1,0 +1,24 @@
+Project: Nexus AI
+
+Architecture:
+- Modular architecture
+- SOLID principles
+- Clean Architecture
+- Plugin-based intelligence modules
+- Runtime must remain independent
+
+Coding Standards:
+- Python 3.12+
+- PEP8
+- Google-style docstrings
+- 100% type hints
+- Thread-safe implementations
+- Production-ready code
+
+Rules:
+- Never modify Runtime unless explicitly instructed.
+- Intelligence modules must integrate through the Intelligence Framework.
+- Reuse existing components before creating new ones.
+- Write comprehensive pytest tests.
+- Prefer composition over inheritance.
+- Preserve backward compatibility.

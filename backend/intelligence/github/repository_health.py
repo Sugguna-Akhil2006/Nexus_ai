@@ -36,6 +36,8 @@ class RepositoryHealthScorer:
             # Check days since last commit
             sorted_commits = sorted(commits, key=lambda c: c["timestamp"])
             last_commit_time = sorted_commits[-1]["timestamp"]
+            if last_commit_time.tzinfo is not None:
+                last_commit_time = last_commit_time.replace(tzinfo=None)
             days_inactive = (datetime.utcnow() - last_commit_time).days
             if days_inactive > 30:
                 activity_score = max(10.0, activity_score - (days_inactive - 30) * 2.0)
