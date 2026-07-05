@@ -9,6 +9,11 @@ from backend.intelligence.document.document_model import (
     QueryResponse,
     DocumentAnalysisReport
 )
+from backend.intelligence.document.models import (
+    DocumentKnowledgeReport,
+    ProcessRequest,
+    SearchIndexRequest
+)
 from backend.intelligence.document.document_service import DocumentProductService
 
 router = APIRouter(prefix="/document", tags=["document"])
@@ -115,3 +120,35 @@ def compare_reports(base_id: str = Query(...), target_id: str = Query(...)) -> A
         return product_service.history_manager.compare_reports(base, target)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Report comparison failed: {str(e)}")
+
+
+@router.post("/process", response_model=DocumentKnowledgeReport)
+def process_documents(req: ProcessRequest) -> Any:
+    """Performs deep parsing, metadata classification, and relationship graph extraction."""
+    try:
+        return product_service.process_documents(
+            workspace_id=req.workspace_id,
+            document_ids=req.document_ids,
+            user_id=req.user_id,
+            options=req.options
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Document processing failed: {str(e)}")
+
+
+@router.post("/index/search", response_model=List[str])
+def search_index(req: SearchIndexRequest) -> Any:
+    """Queries the compiled semantic index for keyword matching chunks."""
+    try:
+        return product_service.search_semantic_index(
+            report_id=req.report_id,
+            search_type=req.search_type,
+            query=req.query
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Index search failed: {str(e)}")
+

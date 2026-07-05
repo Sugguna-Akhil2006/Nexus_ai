@@ -28,6 +28,8 @@ from backend.intelligence.document.document_workflow import DocumentStageNames, 
 from backend.intelligence.profile.services import ProfileService
 from backend.intelligence.profile.models import KnowledgeProfile, ProfilePersonalInfo, ProfileSkill, ProfileProject
 from backend.intelligence.profile.merger import ProfileMerger
+from backend.intelligence.document.models import DocumentKnowledgeReport
+from backend.intelligence.document.document_processor import DocumentProcessor
 
 
 class DocumentHistoryManager:
@@ -97,6 +99,24 @@ class DocumentHistoryManager:
         finally:
             conn.close()
 
+    def get_knowledge_report(self, report_id: str) -> Optional[DocumentKnowledgeReport]:
+        """Retrieves knowledge report from DB."""
+        db = DBStorage()
+        conn = db._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT report_data FROM document_product_history WHERE report_id = ?",
+                (report_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                data = json.loads(row[0])
+                return DocumentKnowledgeReport.model_validate(data)
+            return None
+        finally:
+            conn.close()
+
     def list_history(self, workspace_id: str) -> List[DocumentAnalysisReport]:
         """Lists all reports under a workspace."""
         db = DBStorage()
@@ -162,6 +182,7 @@ class DocumentProductService:
 
     def __init__(self) -> None:
         self.agent = DocumentAgent()
+        self.processor = DocumentProcessor()
         self.cache = DocumentCache()
         self.chunk_manager = ChunkManager()
         self.history_manager = DocumentHistoryManager()
@@ -339,6 +360,95 @@ class DocumentProductService:
             query=query,
             answer=answer,
             citations=citations
+        )
+
+    def process_documents(
+        self,
+        workspace_id: str,
+        document_ids: List[str],
+        user_id: str = "admin",
+        options: Optional[Dict[str, Any]] = None
+    ) -> DocumentKnowledgeReport:
+        """Runs the IDP reasoning pipeline over documents, updating profile and database."""
+        opts = options or {}
+        
+        # Load raw files contents
+        documents = self.cache.get_documents_by_ids(document_ids)
+        if not documents:
+            raise StageExecutionError(
+                DocumentStageNames.LOADER,
+                f"None of the document_ids {document_ids} are registered in cache."
+            )
+
+        # Run reasoning pipeline
+        report = self.processor.process_documents(workspace_id, documents, opts)
+        
+        # Cache and save report
+        self.history_manager.save_report(report)  # Pydantic JSON serialization
+        self.cache.set_report(report.report_id, report)
+
+        # Update Unified Knowledge Profile if appropriate
+        try:
+            profile = self.cache.get_profile(user_id)
+            if not profile:
+                profile = KnowledgeProfile(
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    personal_info=ProfilePersonalInfo(full_name=user_id)
+                )
+
+            incoming_skills = {}
+            incoming_projects = []
+            for item in report.knowledge_objects:
+                # Skill category checks
+                is_skill = "skill" in item.title.lower() or "technology" in item.title.lower()
+                if is_skill:
+                    incoming_skills[item.title] = ProfileSkill(
+                        name=item.title,
+                        category="Technologies",
+                        confidence_score=item.confidence,
+                        sources=document_ids,
+                        evidence=[item.evidence]
+                    )
+                else:
+                    incoming_projects.append(ProfileProject(
+                        name=item.title,
+                        description=item.description,
+                        technologies=[],
+                        sources=document_ids
+                    ))
+
+            incoming_profile = KnowledgeProfile(
+                workspace_id=workspace_id,
+                user_id=user_id,
+                skills=incoming_skills,
+                projects=incoming_projects
+            )
+
+            updated_profile = self.profile_merger.merge_profiles(profile, incoming_profile)
+            self.cache.set_profile(user_id, updated_profile)
+        except Exception:
+            pass
+
+        return report
+
+    def search_semantic_index(self, report_id: str, search_type: str, query: str) -> List[str]:
+        """Searches the compiled semantic index of a processed document report."""
+        report = self.cache.get_report(report_id)
+        if not report:
+            report = self.history_manager.get_knowledge_report(report_id)
+        if not report:
+            raise StageExecutionError(
+                DocumentStageNames.REPORT,
+                f"Knowledge report '{report_id}' not found in cache or DB."
+            )
+
+        # Convert back if needed (or if it is a dictionary from DB)
+        if isinstance(report, dict):
+            report = DocumentKnowledgeReport.model_validate(report)
+
+        return self.processor.semantic_index_builder.search_index(
+            report.semantic_index, search_type, query
         )
 
     def _async_analysis_worker(
