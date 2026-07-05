@@ -45,11 +45,13 @@ class KnowledgeExtractor:
                         # Generate Title from category
                         title = f"{category} Fact {fact_idx}"
                         
+                        cat_val = "Skill" if category == "Language Integration" else "Project"
                         knowledge_objects.append(KnowledgeObject(
                             title=title,
                             description=f"Extracted claim: '{claim_text}'",
                             confidence=0.9,
                             evidence=line_str,
+                            category=cat_val,
                             source_sections=[chunk.section or "General"],
                             supporting_citations=[chunk.text[:100] + "..."]
                         ))

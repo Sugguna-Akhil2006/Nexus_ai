@@ -173,10 +173,12 @@ class DocumentProcessor:
             relationships=graph.edges,
             knowledge_graph=graph,
             semantic_index=semantic_index,
-            document_summary=summary,
+            summary=summary,
             citations=[],
             confidence_scores=scores,
             knowledge_objects=knowledge_objects,
+            extracted_knowledge=knowledge_objects,
+            similar_documents=similar_documents,
             analyzed_at=datetime.utcnow()
         )
 

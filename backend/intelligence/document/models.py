@@ -8,7 +8,8 @@ from backend.intelligence.document.document_model import (
     SummaryDetail,
     Topic,
     Entity,
-    Citation
+    Citation,
+    SimilarityMapping
 )
 
 
@@ -39,6 +40,7 @@ class KnowledgeObject(BaseModel):
     description: str
     confidence: float
     evidence: str
+    category: str = "Project"
     source_sections: List[str] = Field(default_factory=list)
     supporting_citations: List[str] = Field(default_factory=list)
 
@@ -71,10 +73,12 @@ class DocumentKnowledgeReport(BaseModel):
     relationships: List[RelationshipEdge] = Field(default_factory=list)
     knowledge_graph: DocumentGraph
     semantic_index: SemanticIndex
-    document_summary: SummaryDetail
+    summary: SummaryDetail
     citations: List[Citation] = Field(default_factory=list)
     confidence_scores: ConfidenceScores
     knowledge_objects: List[KnowledgeObject] = Field(default_factory=list)
+    extracted_knowledge: List[KnowledgeObject] = Field(default_factory=list)
+    similar_documents: List[SimilarityMapping] = Field(default_factory=list)
     analyzed_at: datetime = Field(default_factory=datetime.utcnow)
 
 

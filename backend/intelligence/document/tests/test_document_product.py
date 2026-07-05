@@ -201,7 +201,7 @@ class TestDocumentProduct(unittest.TestCase):
         self.assertGreaterEqual(len(history), 2)
 
         # Retrieve comparison
-        comp_resp = self.client.get(f"/document/compare?base_id={report_id_1}&target_id={report_id_2}")
+        comp_resp = self.client.post(f"/document/compare?base_id={report_id_1}&target_id={report_id_2}")
         self.assertEqual(comp_resp.status_code, 200)
         comp = comp_resp.json()
 
