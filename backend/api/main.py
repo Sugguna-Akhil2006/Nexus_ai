@@ -372,6 +372,9 @@ app.include_router(workflow_router)
 from backend.api.github_routes import router as github_router
 app.include_router(github_router)
 
+from backend.api.document_routes import router as document_router
+app.include_router(document_router)
+
 from backend.api.intelligence.router import router as gateway_router
 app.include_router(gateway_router)
 
