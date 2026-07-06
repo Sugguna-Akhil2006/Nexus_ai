@@ -46,6 +46,9 @@ class Citation(BaseModel):
     document_name: str
     section: str  # Section header, page number, or block ID
     text_chunk: str
+    chunk_id: Optional[str] = None
+    confidence: Optional[float] = None
+    evidence: Optional[str] = None
 
 
 class SimilarityMapping(BaseModel):
