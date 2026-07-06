@@ -378,6 +378,9 @@ app.include_router(document_router)
 from backend.api.intelligence.router import router as gateway_router
 app.include_router(gateway_router)
 
+from backend.api.public_routes import router as public_router
+app.include_router(public_router)
+
 
 
 @app.post("/api/auth/register")
