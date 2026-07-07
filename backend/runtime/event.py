@@ -31,6 +31,24 @@ class EventType(Enum):
     SYSTEM_EVENT = "SYSTEM_EVENT"
     ERROR_OCCURRED = "ERROR_OCCURRED"
     CUSTOM_EVENT = "CUSTOM_EVENT"
+    SESSION_CREATED = "session.created"
+    SESSION_RESTORED = "session.restored"
+    CHECKPOINT_CREATED = "checkpoint.created"
+    WORKSPACE_UPDATED = "workspace.updated"
+    CONTEXT_REBUILT = "context.rebuilt"
+    PACKAGE_INSTALLED = "package.installed"
+    PACKAGE_UPDATED = "package.updated"
+    PACKAGE_REMOVED = "package.removed"
+    PACKAGE_FAILED = "package.failed"
+    OPTIMIZATION_ANALYSIS_STARTED = "optimization.analysis.started"
+    OPTIMIZATION_COMPLETED = "optimization.completed"
+    BOTTLENECK_DETECTED = "bottleneck.detected"
+    RECOMMENDATION_GENERATED = "recommendation.generated"
+    REASONING_TRACE_CREATED = "reasoning.trace.created"
+    REASONING_REPLAYED = "reasoning.replayed"
+    REASONING_COMPARED = "reasoning.compared"
+    REASONING_VALIDATED = "reasoning.validated"
+
 
 
 class EventPriority(Enum):

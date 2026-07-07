@@ -1,7 +1,7 @@
 """Actionable Recommendation engine deriving evidence-based improvement steps from gaps."""
 
 from typing import List
-from backend.intelligence.resume.models import JDCategoryMatch, Resume
+from backend.intelligence.resume.models import JDCategoryMatch, Resume, AnalysisRecommendation
 
 
 class RecommendationEngine:
