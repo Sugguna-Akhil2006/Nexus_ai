@@ -353,7 +353,30 @@ class WorkspaceCreateRequest(BaseModel):
 # FastAPI Routing
 # =====================================================================
 
-app = FastAPI(title="Nexus AI REST & WebSocket Gateway", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("INFO: Server started")
+    print("INFO: Runtime initialized")
+    from backend.intelligence.core.registry import IntelligenceRegistry
+    from backend.intelligence.resume.module import ResumeModule
+    from backend.intelligence.github.module import GitHubModule
+    from backend.intelligence.document.document_agent import DocumentModule
+    
+    registry = IntelligenceRegistry()
+    # Register core modules if not already registered
+    try:
+        registry.register(ResumeModule())
+        registry.register(GitHubModule())
+        registry.register(DocumentModule())
+    except Exception:
+        pass
+    print("INFO: Intelligence modules registered")
+    print("INFO: Waiting for requests...")
+    yield
+    print("INFO: Server shutting down")
+
+
+app = FastAPI(title="Nexus AI REST & WebSocket Gateway", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -380,6 +403,17 @@ app.include_router(gateway_router)
 
 from backend.api.public_routes import router as public_router
 app.include_router(public_router)
+
+from backend.workspace.workspace_api import router as workspace_router
+app.include_router(workspace_router, prefix="/product")
+app.include_router(workspace_router)
+
+from backend.product.routes import router as product_router
+app.include_router(product_router)
+
+from backend.admin.admin_api import router as admin_router
+app.include_router(admin_router)
+
 
 
 
@@ -766,3 +800,9 @@ async def websocket_chat_endpoint(websocket: WebSocket):
         traceback.print_exc()
         await websocket.send_json({"error": str(e)})
         await websocket.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.api.main:app", host="0.0.0.0", port=8000, reload=True)
+

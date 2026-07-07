@@ -48,6 +48,11 @@ class EventType(Enum):
     REASONING_REPLAYED = "reasoning.replayed"
     REASONING_COMPARED = "reasoning.compared"
     REASONING_VALIDATED = "reasoning.validated"
+    ANALYSIS_STARTED = "analysis.started"
+    ANALYSIS_PROGRESS = "analysis.progress"
+    ANALYSIS_COMPLETED = "analysis.completed"
+    ANALYSIS_FAILED = "analysis.failed"
+
 
 
 
