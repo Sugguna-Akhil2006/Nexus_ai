@@ -1,15 +1,67 @@
-"""Models and data schemas for AI Governance, Policy & Security Framework."""
+"""Pydantic data models for the AI Governance & Compliance Center."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class ApprovalState(str, Enum):
+    """Lifecycle/deployment approval state of a model."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    DEPRECATED = "deprecated"
+
+
+class ModelRecord(BaseModel):
+    """Metadata block for registered LLMs."""
+
+    model_id: str
+    name: str
+    version: str
+    provider: str
+    status: str = "active"  # "active" | "deprecated" | "retired"
+    approval_state: ApprovalState = ApprovalState.PENDING
+    registered_at: str = Field(default_factory=_utcnow)
+
+
+class AuditTrailEntry(BaseModel):
+    """Historical event captured for security audit trails."""
+
+    audit_id: str
+    timestamp: str = Field(default_factory=_utcnow)
+    category: str  # "workflow" | "policy" | "provider" | "config" | "admin"
+    actor: str
+    action: str
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ComplianceCheckResult(BaseModel):
+    """Structural report of compliance evaluations."""
+
+    rule_name: str
+    passed: bool
+    details: str
+
+
+class ComplianceStatusReport(BaseModel):
+    """Aggregate compliance reports."""
+
+    overall_passed: bool
+    checked_at: str = Field(default_factory=_utcnow)
+    results: List[ComplianceCheckResult] = Field(default_factory=list)
 
 
 class RiskLevel(str, Enum):
-    """Execution risk classifications."""
+    """Governance risk tiers."""
 
     LOW = "low"
     MEDIUM = "medium"
@@ -17,92 +69,10 @@ class RiskLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class ApprovalType(str, Enum):
-    """Enforces dynamic execution approval routes."""
-
-    AUTO = "automatic"
-    MANUAL = "manual"
-    ADMIN = "admin"
-    SCHEDULED = "scheduled"
-
-
-@dataclass
-class PolicyRule:
-    """Configurable constraint rule verified by the policy engine."""
-
-    policy_id: str
-    name: str
-    workspace_id: str = "*"  # Wildcard for all workspaces
-    allowed_modules: List[str] = field(default_factory=lambda: ["*"])
-    allowed_models: List[str] = field(default_factory=lambda: ["*"])
-    allowed_providers: List[str] = field(default_factory=lambda: ["*"])
-    allowed_plugins: List[str] = field(default_factory=lambda: ["*"])
-    max_tokens: int = 4096
-    max_cost: float = 0.50
-    max_execution_time: float = 60.0  # seconds
-    is_active: bool = True
-
-
-@dataclass
-class SecurityCheckResult:
-    """Consolidated security alerts and validations."""
-
-    has_prompt_injection: bool = False
-    detected_pii: List[str] = field(default_factory=list)
-    has_unsafe_tools: bool = False
-    has_unauthorized_plugin: bool = False
-    is_malicious_file: bool = False
-    warnings: List[str] = field(default_factory=list)
-
-
-@dataclass
-class RiskAssessment:
-    """Risk scoring and classification payload."""
+class RiskReport(BaseModel):
+    """Risk calculation metrics and alerts."""
 
     risk_level: RiskLevel
     score: float  # 0.0 to 1.0
-    explanation: str
-    checks_evaluated: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class AuditRecord:
-    """Comprehensive historical trail for audit logs."""
-
-    record_id: str
-    timestamp: str
-    user_id: str
-    workspace_id: str
-    module_used: str
-    model_used: str
-    provider_used: str
-    tokens_consumed: int
-    cost_estimated: float
-    latency_ms: float
-    status: str  # approved, completed, denied, failed
-    policy_violations: List[str] = field(default_factory=list)
-    security_alerts: List[str] = field(default_factory=list)
-    risk_level: str = "low"
-
-
-@dataclass
-class GovernanceDecision:
-    """Consolidated policy check decision returned prior to run."""
-
-    is_approved: bool
-    risk_level: RiskLevel
-    approval_type: ApprovalType
-    decision_reasons: List[str] = field(default_factory=list)
-    security_check: Optional[SecurityCheckResult] = None
-    risk_assessment: Optional[RiskAssessment] = None
-
-
-@dataclass
-class ComplianceStatus:
-    """State status for standard industry policies."""
-
-    gdpr_compliant: bool = True
-    soc2_compliant: bool = True
-    iso_compliant: bool = True
-    enterprise_compliant: bool = True
-    non_compliant_reasons: List[str] = field(default_factory=list)
+    alerts: List[str] = Field(default_factory=list)
+    calculated_at: str = Field(default_factory=_utcnow)

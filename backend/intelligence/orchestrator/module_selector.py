@@ -1,31 +1,74 @@
-"""Selects appropriate modules to execute based on capabilities and inputs."""
+"""Module selector matching queries or intents to registered Intelligence modules."""
 
-from typing import List
+from __future__ import annotations
+
+import logging
+from typing import List, Set
+
+from backend.intelligence.core.registry import IntelligenceRegistry
+
+logger = logging.getLogger("nexus.orchestrator.selector")
 
 
 class ModuleSelector:
-    """Filters candidate intents according to input files availability."""
+    """Discovers and selects registered modules based on input query terms and attachments."""
+
+    def __init__(self) -> None:
+        self._registry = IntelligenceRegistry()
 
     def select_modules(
         self,
-        intents: List[str],
-        document_ids: List[str]
+        query: str,
+        document_ids: List[str],
+        explicit_modules: Optional[List[str]] = None,
     ) -> List[str]:
-        """Resolves target executable modules based on user intents and document IDs.
+        """Identifies target modules required to satisfy the orchestration request.
 
-        Guards:
-        - If "Document" or "Research" is requested but no document_ids are provided, it retains
-          them only if they can query general databases, otherwise filters them out or issues warning.
+        Args:
+            query: User's intent query.
+            document_ids: Attached document identifiers.
+            explicit_modules: Optional list of modules explicitly requested.
+
+        Returns:
+            List of matching module names.
         """
-        selected = []
-        for intent in intents:
-            if intent in ("Document", "Research") and not document_ids:
-                # If no documents are passed, fall back to "Resume" or "GitHub" profile queries instead
-                continue
-            selected.append(intent)
+        available_modules = self._registry.list_modules()
+        # Fallback to known modules list if registry is empty (e.g. during startup/testing)
+        check_modules = available_modules if available_modules else ["resume", "github", "document", "professional", "research"]
 
-        # Fallback safeguard
+        if explicit_modules:
+            return explicit_modules
+
+        # Simple semantic/keyword intent parsing fallback
+        query_lower = query.lower()
+        selected: Set[str] = set()
+
+        # Keyword mapping
+        mappings = {
+            "resume": ["resume", "cv", "candidate", "applicant", "career"],
+            "github": ["github", "git", "repo", "codebase", "commit"],
+            "document": ["document", "pdf", "docx", "text", "file"],
+            "professional": ["professional", "portfolio", "score", "evaluate"],
+            "research": ["research", "paper", "literature", "article"],
+        }
+
+        # Match query keywords
+        for mod, keywords in mappings.items():
+            if mod in check_modules:
+                if any(kw in query_lower for kw in keywords):
+                    selected.add(mod)
+
+        # Match based on document presence
+        if document_ids:
+            if "document" in available_modules:
+                selected.add("document")
+
+        # Fallback to general modules if nothing matched
         if not selected:
-            selected.append("Resume")
+            # Default to document or research if available, otherwise first module
+            if "document" in available_modules:
+                selected.add("document")
+            elif available_modules:
+                selected.add(available_modules[0])
 
-        return selected
+        return sorted(list(selected))

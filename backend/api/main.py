@@ -386,6 +386,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.tenant.tenant_middleware import TenantContextMiddleware
+app.add_middleware(TenantContextMiddleware)
+
 from backend.api.resume_routes import router as resume_router
 app.include_router(resume_router)
 
@@ -413,6 +416,57 @@ app.include_router(product_router)
 
 from backend.admin.admin_api import router as admin_router
 app.include_router(admin_router)
+
+from backend.diagnostics.api import router as diagnostics_router
+app.include_router(diagnostics_router)
+
+from backend.evaluation.api import router as evaluation_router
+app.include_router(evaluation_router)
+
+from backend.config.api import router as config_router
+app.include_router(config_router)
+
+from backend.architecture.api import router as architecture_router
+app.include_router(architecture_router)
+
+from backend.release.api import router as release_router
+app.include_router(release_router)
+
+from backend.workspaces.api import router as workspaces_router
+app.include_router(workspaces_router)
+
+from backend.release_builder.api import router as release_builder_router
+app.include_router(release_builder_router)
+
+from backend.sandbox.api import router as sandbox_router
+app.include_router(sandbox_router)
+
+from backend.tenant.api import router as tenant_router
+app.include_router(tenant_router)
+
+from backend.workflow_library.api import router as workflow_library_router
+app.include_router(workflow_library_router)
+
+from backend.idp.api import router as idp_router
+app.include_router(idp_router)
+
+from backend.certification.api import router as certification_router
+app.include_router(certification_router)
+
+from backend.recovery.api import router as recovery_router
+app.include_router(recovery_router)
+
+from backend.migration.api import router as migration_router
+app.include_router(migration_router)
+
+from backend.policy.api import router as policy_router
+app.include_router(policy_router)
+
+from backend.analytics.api import router as analytics_router
+app.include_router(analytics_router)
+
+from backend.governance.api import router as governance_router
+app.include_router(governance_router)
 
 
 
