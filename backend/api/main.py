@@ -18,6 +18,7 @@ import io
 # FastAPI imports
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 # Nexus Core imports
@@ -212,6 +213,10 @@ except Exception:
     EmbeddingRegistry().register_provider("mock_embedding", MockEmbeddingProvider())
 
 # Configure Default Ollama / OpenAI Models in Registry
+import sys
+if "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST") is not None:
+    os.environ["OLLAMA_HOST"] = "mock"
+
 ollama_host = os.getenv("OLLAMA_HOST", "localhost")
 ollama_port = int(os.getenv("OLLAMA_PORT", 11434))
 model_provider = OllamaProvider(config=OllamaConfiguration(host=ollama_host, port=ollama_port))
@@ -266,7 +271,8 @@ class VectorSearchProvider(SearchProvider):
         results = vec_provider.search(VectorSearchRequest(
             embedding=embeddings,
             collection=col_id,
-            top_k=request.top_k
+            top_k=request.top_k,
+            metadata={"query": request.query}
         ))
 
         agent_results = []
@@ -363,6 +369,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/console", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
+def get_developer_console():
+    import os
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    console_path = os.path.join(base_dir, "frontend", "index.html")
+    if os.path.exists(console_path):
+        return FileResponse(console_path)
+    raise HTTPException(status_code=404, detail="Developer Console front-end template index.html not found.")
+
+
 from backend.api.resume_routes import router as resume_router
 app.include_router(resume_router)
 
@@ -377,6 +394,15 @@ app.include_router(document_router)
 
 from backend.api.intelligence.router import router as gateway_router
 app.include_router(gateway_router)
+
+from backend.product.routes import router as product_router
+app.include_router(product_router)
+
+from backend.workspace.workspace_api import router as workspace_router
+app.include_router(workspace_router)
+
+from backend.admin.admin_api import router as admin_router
+app.include_router(admin_router)
 
 
 
@@ -441,6 +467,13 @@ async def upload_document(workspace_id: str, file: UploadFile = File(...)):
     # Relational entry
     db_storage.create_document(doc_id, workspace_id, file.filename, checksum)
 
+    # Save extracted text to persistent scratch directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    doc_dir = os.path.join(base_dir, "scratch", "documents")
+    os.makedirs(doc_dir, exist_ok=True)
+    with open(os.path.join(doc_dir, f"{doc_id}.txt"), "w", encoding="utf-8") as f:
+        f.write(text)
+
     # Chunking & Embeddings generation using EmbeddingAgent
     task_embed = Task(
         description="Index document content",
@@ -465,6 +498,21 @@ async def upload_document(workspace_id: str, file: UploadFile = File(...)):
     }
 
     return {"status": "success", "document_id": doc_id, "chars_extracted": len(text)}
+
+
+@app.get("/api/documents/{id}/content")
+def get_document_content(id: str):
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    doc_path = os.path.join(base_dir, "scratch", "documents", f"{id}.txt")
+    if not os.path.exists(doc_path):
+        from backend.services.resume_service import _resume_texts
+        if id in _resume_texts:
+            return {"content": _resume_texts[id]}
+        raise HTTPException(status_code=404, detail=f"Document content for ID '{id}' not found.")
+    
+    with open(doc_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return {"content": content}
 
 
 @app.get("/api/documents")
@@ -684,8 +732,10 @@ async def websocket_chat_endpoint(websocket: WebSocket):
 
                 retrieved_chunks = [
                     {
+                        "document_id": c.document_id,
                         "document_name": c.metadata.get("document_name", f"Doc: {c.document_id}"),
                         "chunk_id": c.chunk_id,
+                        "chunk_number": idx + 1,
                         "section_name": c.metadata.get("section", "General"),
                         "similarity_score": round(c.relevance_score if c.relevance_score else 0.85, 4),
                         "snippet": c.snippet,
@@ -746,6 +796,14 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                             "system_prompt": system_prompt,
                             "user_prompt": user_prompt,
                             "final_assembled_prompt": final_prompt
+                        },
+                        "search_debug": {
+                            "search_query": message,
+                            "top_k": len(citations)
+                        },
+                        "model_info": {
+                            "current_provider": selected_prov,
+                            "model_name": "phi3:mini"
                         },
                         "retrieved_chunks": retrieved_chunks,
                         "workflow_trace": workflow_trace,

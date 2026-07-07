@@ -119,38 +119,60 @@ export default function AdminDashboardPage() {
 
   const handleRefreshSync = async () => {
     setIsRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Simulate slight modifications in gateway latencies
-    setHealthMetrics([
-      {
-        id: "h-1",
-        name: "API Gateway",
-        status: "Active",
-        metricText: `${Math.floor(Math.random() * 5 + 10)}ms latency`,
-      },
-      {
-        id: "h-2",
-        name: "Compute Nodes",
-        status: "Active",
-        metricText: `${Math.floor(Math.random() * 10 + 38)}% utilized`,
-      },
-      {
-        id: "h-3",
-        name: "Vector Database",
-        status: "Active",
-        metricText: "Healthy",
-      },
-      {
-        id: "h-4",
-        name: "CDN Edge",
-        status: "Active", // CDN recovered
-        metricText: "Healthy",
-      },
-    ]);
-
-    setIsRefreshing(false);
-    toast.success("Enterprise sync metrics updated. CDN health clusters restored!");
+    try {
+      const res = await fetch("/admin/health");
+      const data = await res.json();
+      if (data.success && data.data && data.data.services) {
+        const services = data.data.services;
+        const metrics: HealthMetric[] = [
+          {
+            id: "h-1",
+            name: "API Gateway",
+            status: services.api_gateway.status === "healthy" ? "Active" : "Warning",
+            metricText: `${services.api_gateway.routes_registered} routes`,
+          },
+          {
+            id: "h-2",
+            name: "Database Status",
+            status: services.database.status === "healthy" ? "Active" : "Error",
+            metricText: `${services.database.latency_ms}ms`,
+          },
+          {
+            id: "h-3",
+            name: "WebSocket Channels",
+            status: services.websocket.status === "healthy" ? "Active" : "Warning",
+            metricText: `${services.websocket.active_channels} active`,
+          }
+        ];
+        setHealthMetrics(metrics);
+        toast.success("Enterprise health metrics synchronized successfully!");
+      }
+    } catch (e) {
+      toast.error("Failed to sync live gateway metrics. Using simulator fallback.");
+      // Fallback
+      setHealthMetrics([
+        {
+          id: "h-1",
+          name: "API Gateway",
+          status: "Active",
+          metricText: `${Math.floor(Math.random() * 5 + 10)}ms latency`,
+        },
+        {
+          id: "h-2",
+          name: "Compute Nodes",
+          status: "Active",
+          metricText: `${Math.floor(Math.random() * 10 + 38)}% utilized`,
+        },
+        {
+          id: "h-3",
+          name: "Vector Database",
+          status: "Active",
+          metricText: "Healthy",
+        }
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleExportReport = () => {

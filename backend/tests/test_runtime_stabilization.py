@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 from fastapi.testclient import TestClient
 
+import os
+os.environ["OLLAMA_HOST"] = "mock"
 from backend.api.main import app, db_storage, METRICS_CACHE
 
 
@@ -11,6 +13,38 @@ class TestRuntimeStabilization(unittest.TestCase):
     """Regression test suite for Runtime MVP stabilization, RAG quality, and diagnostics."""
 
     def setUp(self) -> None:
+        # Restore default registries for isolated runtime stabilization tests
+        from backend.interfaces.model import ModelRegistry
+        from backend.providers.ollama_provider import OllamaProvider, OllamaConfiguration
+        from backend.interfaces.vector import VectorRegistry
+        from backend.providers.qdrant_vector import QdrantVectorProvider
+        from backend.agents.search import SearchRegistry
+        from backend.api.main import VectorSearchProvider
+        from backend.agents.embedding import EmbeddingRegistry, MockEmbeddingProvider
+
+        model_registry = ModelRegistry()
+        with model_registry._lock:
+            model_registry._providers.clear()
+        model_provider = OllamaProvider(config=OllamaConfiguration(host="mock", port=11434))
+        model_provider.initialize()
+        model_registry.register_provider("ollama", model_provider)
+
+        vector_registry = VectorRegistry()
+        with vector_registry._lock:
+            vector_registry._providers.clear()
+        vector_provider = QdrantVectorProvider(mock=True)
+        vector_registry.register_provider("qdrant", vector_provider)
+
+        embedding_registry = EmbeddingRegistry()
+        with embedding_registry._lock:
+            embedding_registry._providers.clear()
+        embedding_registry.register_provider("mock_embedding", MockEmbeddingProvider())
+
+        search_registry = SearchRegistry()
+        with search_registry._lock:
+            search_registry._providers.clear()
+        search_registry.register_provider("vector_search", VectorSearchProvider(vector_registry))
+
         self.client = TestClient(app)
         # Clear relational database tables for fresh, isolated workspace contexts
         conn = db_storage._get_connection()

@@ -20,6 +20,35 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNewProject } from "@/providers/new-project-provider";
+import { useWorkspace } from "@/providers/workspace-provider";
+
+function WorkspaceSwitcher() {
+  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
+
+  return (
+    <div className="w-full mb-6 relative">
+      <label className="font-bold text-on-surface-variant/80 block pl-0.5 uppercase tracking-wider text-[9px] mb-1">
+        Active Workspace
+      </label>
+      <div className="relative">
+        <select
+          value={activeWorkspace?.workspace_id || ""}
+          onChange={(e) => switchWorkspace(e.target.value)}
+          className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 pr-8 text-on-surface focus:outline-none focus:border-primary transition-all text-xs font-semibold appearance-none cursor-pointer"
+        >
+          {workspaces.map((ws) => (
+            <option key={ws.workspace_id} value={ws.workspace_id}>
+              {ws.name} {ws.is_favorite ? "⭐" : ""}
+            </option>
+          ))}
+        </select>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant/80 text-[10px]">
+          ▼
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface NavigationItem {
   label: string;
@@ -58,7 +87,7 @@ export default function DashboardSidebar({ className, isMobile = false, onItemCl
   const sidebarContent = (
     <>
       {/* Brand Logo */}
-      <div className="flex items-center gap-2 mb-16 px-2">
+      <div className="flex items-center gap-2 mb-8 px-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary">
           <Boxes className="size-6" />
         </div>
@@ -69,6 +98,9 @@ export default function DashboardSidebar({ className, isMobile = false, onItemCl
           </p>
         </div>
       </div>
+
+      {/* Workspace Switcher */}
+      <WorkspaceSwitcher />
 
       {/* Action Button */}
       <Button

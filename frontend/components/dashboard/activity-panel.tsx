@@ -8,6 +8,8 @@ import {
   AlertTriangle 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useWorkspace } from "@/providers/workspace-provider";
+import { useEffect, useState } from "react";
 
 interface ActivityItem {
   id: string;
@@ -38,27 +40,35 @@ const ACTIVITIES: ActivityItem[] = [
     iconBgClass: "bg-green-500/10 border border-green-500/20",
     iconColorClass: "text-green-400",
   },
-  {
-    id: "act-3",
-    title: "Deployment successful",
-    subtitle: "Core-Sync 2.0 v1.4.2 production",
-    time: "45m ago",
-    icon: Terminal,
-    iconBgClass: "bg-secondary/15",
-    iconColorClass: "text-primary",
-  },
-  {
-    id: "act-4",
-    title: "High latency detected",
-    subtitle: "Node US-West-2 spike (+230ms)",
-    time: "1h ago",
-    icon: AlertTriangle,
-    iconBgClass: "bg-destructive/15 border border-destructive/20",
-    iconColorClass: "text-destructive",
-  },
 ];
 
 export default function ActivityPanel() {
+  const { activeWorkspace } = useWorkspace();
+  const [activities, setActivities] = useState<ActivityItem[]>(ACTIVITIES);
+
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    fetch(`/product/workspace/${activeWorkspace.workspace_id}/dashboard`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data && data.data.timeline) {
+          const list = data.data.timeline.map((act: any) => ({
+            id: act.activity_id,
+            title: act.activity_type.replace("_", " ").toUpperCase(),
+            subtitle: act.description,
+            time: new Date(act.timestamp).toLocaleTimeString(),
+            icon: Terminal,
+            iconBgClass: "bg-primary/10",
+            iconColorClass: "text-primary",
+          }));
+          if (list.length > 0) {
+            setActivities(list);
+          }
+        }
+      })
+      .catch((err) => console.error("Error loading dashboard activities", err));
+  }, [activeWorkspace]);
+
   return (
     <div className="col-span-12 lg:col-span-4 bg-surface-container-low border border-outline-variant p-6 rounded-xl flex flex-col gap-4 group hover:border-outline-variant/80 transition-all duration-300">
       {/* Header */}
@@ -74,7 +84,7 @@ export default function ActivityPanel() {
 
       {/* Activity List */}
       <div className="space-y-3 overflow-y-auto max-h-[300px] pr-1 scrollbar-thin">
-        {ACTIVITIES.map((activity) => (
+        {activities.map((activity) => (
           <div
             key={activity.id}
             className="flex gap-4 p-3 rounded-lg bg-transparent hover:bg-surface-container-high/30 border border-transparent hover:border-outline-variant transition-all duration-200"

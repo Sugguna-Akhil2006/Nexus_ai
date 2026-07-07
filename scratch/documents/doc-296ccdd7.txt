@@ -1,0 +1,16 @@
+Deep Learning Research Paper
+
+ABSTRACT
+This paper explores semantic chunking strategies for low-latency RAG execution on small GPUs.
+
+INTRODUCTION
+Information retrieval has become standard in modern agent stacks.
+
+METHODOLOGY
+We propose splitting documents dynamically using structured regular expression boundaries.
+
+RESULTS
+Our semantic splitting reduces LLM response latency by 23%.
+
+CONCLUSION
+Dynamic headings parsing outperforms fixed boundaries.

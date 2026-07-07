@@ -62,8 +62,10 @@ class TestResumePlatform(unittest.TestCase):
 
     def catch_event(self, event: Event) -> None:
         """Callback to store published events."""
-        if event.event_type == EventType.CUSTOM_EVENT:
-            self.caught_events.append(event.payload.get("event_name"))
+        if event.payload:
+            name = event.payload.get("event_name") or event.payload.get("event")
+            if name:
+                self.caught_events.append(name)
 
     def test_tools_registration(self) -> None:
         """Verifies the 6 Prompt 37 tools are registered in the registry."""
@@ -136,6 +138,7 @@ class TestResumePlatform(unittest.TestCase):
         self.assertIsNotNone(doc_id)
         
         # Verify event 'resume.uploaded'
+        self.event_bus.dispatch_all()
         self.assertIn("resume.uploaded", self.caught_events)
 
         # 2. Run Analyze Endpoint
@@ -149,6 +152,7 @@ class TestResumePlatform(unittest.TestCase):
         self.assertEqual(report.get("report_data", {}).get("parser", {}).get("name"), "Jane Doe")
 
         # Verify event 'resume.analyzed'
+        self.event_bus.dispatch_all()
         self.assertIn("resume.analyzed", self.caught_events)
 
         # 3. Match against Job Description
@@ -162,6 +166,7 @@ class TestResumePlatform(unittest.TestCase):
         self.assertGreater(match_info.get("matcher", {}).get("compatibility_score", 0), 0)
 
         # Verify event 'resume.matched'
+        self.event_bus.dispatch_all()
         self.assertIn("resume.matched", self.caught_events)
 
         # 4. Compare Resumes versions
@@ -174,6 +179,7 @@ class TestResumePlatform(unittest.TestCase):
         self.assertIsNotNone(compare_info.get("comparison_id"))
 
         # Verify event 'resume.compared'
+        self.event_bus.dispatch_all()
         self.assertIn("resume.compared", self.caught_events)
 
         # 5. Export formatted report
@@ -184,4 +190,5 @@ class TestResumePlatform(unittest.TestCase):
         self.assertIn("pdf_data_model", report_data)
 
         # Verify event 'resume.report.generated'
+        self.event_bus.dispatch_all()
         self.assertIn("resume.report.generated", self.caught_events)

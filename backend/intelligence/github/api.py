@@ -2,7 +2,9 @@
 
 import json
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Response
+
+from backend.intelligence.github.report_renderer import GitHubReportRenderer
 
 from backend.intelligence.github.service import GitHubProductService
 from backend.intelligence.github.history import GitHubHistoryManager
@@ -140,7 +142,7 @@ def analyze_user(req: UserRequest) -> Any:
 
 
 @router.get("/report/{id}")
-def get_report(id: str) -> Any:
+def get_report(id: str, export: Optional[str] = Query(None, description="Export format: pdf, html, markdown, or json")) -> Any:
     """Retrieves compiled reports by unique report ID or checks active background job status."""
     # 1. Check if ID represents a background job status
     job = product_service.get_job_status(id)
@@ -155,6 +157,30 @@ def get_report(id: str) -> Any:
 
     if not report:
         raise HTTPException(status_code=404, detail=f"GitHub report or job status with ID '{id}' not found.")
+
+    # Handle exports formatting using GitHubReportRenderer
+    renderer = GitHubReportRenderer()
+    if export == "pdf":
+        pdf_bytes = renderer.to_pdf(report)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=github_report_{id}.pdf"}
+        )
+    elif export == "html":
+        html_str = renderer.to_html(report)
+        return Response(
+            content=html_str.encode("utf-8"),
+            media_type="text/html",
+            headers={"Content-Disposition": f"attachment; filename=github_report_{id}.html"}
+        )
+    elif export == "markdown" or export == "md":
+        md_str = renderer.to_markdown(report)
+        return Response(
+            content=md_str.encode("utf-8"),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f"attachment; filename=github_report_{id}.md"}
+        )
 
     return report.model_dump()
 
