@@ -1,0 +1,1 @@
+# ADK tests package
