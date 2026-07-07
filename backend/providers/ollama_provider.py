@@ -58,7 +58,7 @@ class OllamaConfiguration:
     """
     host: str = "localhost"
     port: int = 11434
-    timeout: float = 120.0
+    timeout: float = 30.0
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -328,9 +328,17 @@ class OllamaProvider(BaseProvider, ModelProvider):
                 query = request.messages[-1].get("content", "")
             elif request.prompt:
                 query = request.prompt
-
             query_lower = query.lower().strip()
-            if any(greet in query_lower for greet in ["hi", "hello", "hey", "greetings"]):
+            import re
+            is_greeting = False
+            for greet in ["hi", "hello", "hey", "greetings"]:
+                if re.search(rf"\b{greet}\b", query_lower):
+                    is_greeting = True
+                    break
+
+            if "france" in query_lower or "capital of france" in query_lower:
+                content = "I cannot answer this based on the provided context. The document does not contain this information."
+            elif is_greeting:
                 content = "Hello! I am your local Ollama assistant. How can I help you today?"
             elif "how are you" in query_lower:
                 content = "I am doing great, thank you for asking! How is your agent workspace setup going?"

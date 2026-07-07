@@ -1,0 +1,13 @@
+John Doe Resume
+
+EDUCATION
+B.Sc. Computer Science from Stanford University, 2021.
+
+SKILLS
+Expert in Python, PyTorch, FastAPI, and Docker.
+
+EXPERIENCE
+Software Engineer at Google (2021 - Present). Built RAG search engines.
+
+PROJECTS
+NexusAI - Multi-agent framework with intent routing and local LLM.

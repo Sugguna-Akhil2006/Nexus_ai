@@ -83,7 +83,7 @@
     .app-body {
       flex: 1;
       display: flex;
-      height: calc(100vh - 55px - 280px); /* Subtract header and debugger panels */
+      height: calc(100vh - 55px - 340px); /* Subtract header and debugger panels */
       overflow: hidden;
     }
 
@@ -415,7 +415,7 @@
 
     /* Collapsible Bottom Debugger Tabs */
     .bottom-debugger {
-      height: 280px;
+      height: 340px;
       background: rgba(11, 13, 19, 0.98);
       border-top: 1px solid var(--border);
       display: flex;
@@ -718,6 +718,9 @@
         <div class="tab" onclick="switchTab(2)">Workflow Trace</div>
         <div class="tab" onclick="switchTab(3)">Error Console</div>
         <div class="tab" onclick="switchTab(4)">Performance Dashboard</div>
+        <div class="tab" onclick="switchTab(5)">Document Viewer</div>
+        <div class="tab" onclick="switchTab(6)">Citation Viewer</div>
+        <div class="tab" onclick="switchTab(7)">Repository Dashboard</div>
       </div>
       <div style="font-size:11.5px; color: var(--cyan);" id="debug-workflow-label">Workflow Status: Idle</div>
     </div>
@@ -794,6 +797,90 @@
           <div class="debug-row"><span class="label">Total System Requests</span><span class="val" id="perf-requests">0</span></div>
           <div class="debug-row"><span class="label">Active Conversations</span><span class="val" id="perf-convs">0</span></div>
           <div class="debug-row"><span class="label">Documents Indexed</span><span class="val" id="perf-docs">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Viewer Tab -->
+    <div class="tab-content" id="tab-5">
+      <div id="doc-viewer-title" style="font-size:12px; color: var(--cyan); margin-bottom:8px; font-weight:600;">Active Document: -</div>
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 15px; border-radius: 6px; font-family: monospace; font-size:12px; max-height: 230px; overflow-y: auto; white-space: pre-wrap;" id="doc-viewer-content">
+        Select an ingested document from the sidebar to inspect its raw text.
+      </div>
+    </div>
+
+    <!-- Citation Viewer Tab -->
+    <div class="tab-content" id="tab-6">
+      <div id="citation-viewer-title" style="font-size:12px; color: var(--cyan); margin-bottom:8px; font-weight:600;">Selected Citation Context</div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="background: var(--bg-panel); border: 1px solid rgba(0, 240, 255, 0.2); padding: 15px; border-radius: 6px; font-family: monospace; font-size:12px; max-height: 150px; overflow-y: auto;" id="citation-viewer-snippet">
+          Click on a citation tag in the chat response to load its matching vector chunk snippet.
+        </div>
+        <div style="display: flex; gap: 12px; font-size: 11px; color: var(--text-mute); padding: 0 4px;" id="citation-viewer-metadata">
+          <span>Relevance Score: -</span>
+          <span>Chunk ID: -</span>
+          <span>Source: -</span>
+        </div>
+        <button class="btn" style="width: fit-content; margin-top: 4px;" id="citation-view-full-btn" onclick="viewCitationFullDoc()" disabled>View Full Document</button>
+      </div>
+    </div>
+
+    <!-- Repository Dashboard Tab -->
+    <div class="tab-content" id="tab-7">
+      <div id="repo-dashboard-main">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="font-size:12px; color: var(--cyan); font-weight:600;">Analyzed Repository Dashboards</div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="git-repo-url" placeholder="Repo URL (e.g. . or github.com/...)" style="width: 200px; font-size: 11px; padding: 4px 8px;">
+            <input type="text" id="git-repo-branch" placeholder="Branch (default: main)" style="width: 100px; font-size: 11px; padding: 4px 8px;">
+            <button class="btn" onclick="triggerGitAnalysis(false)" style="padding: 4px 10px;">Run Sync</button>
+            <button class="btn" onclick="triggerGitAnalysis(true)" style="padding: 4px 10px; background: rgba(168, 85, 247, 0.1); border-color: rgba(168, 85, 247, 0.2); color: var(--purple);">Run Async</button>
+          </div>
+        </div>
+
+        <!-- Git Job Progress Indicator -->
+        <div id="git-progress-container" style="display: none; background: var(--bg-panel); border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+            <span id="git-progress-msg" style="color: var(--cyan);">Queued in worker pool...</span>
+            <span id="git-progress-pct" style="font-weight: bold; color: var(--purple);">0%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: #000; border-radius: 3px; overflow: hidden;">
+            <div id="git-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(95deg, var(--cyan) 0%, var(--purple) 100%); transition: width 0.3s;"></div>
+          </div>
+        </div>
+
+        <div style="max-height: 230px; overflow-y: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;" id="git-repos-table">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border); color: var(--text-mute);">
+                <th style="padding: 6px 12px;">Repository</th>
+                <th style="padding: 6px 12px;">Branch</th>
+                <th style="padding: 6px 12px;">Date</th>
+                <th style="padding: 6px 12px;">Quality Score</th>
+                <th style="padding: 6px 12px;">Health Score</th>
+                <th style="padding: 6px 12px; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Full Engineering Report Details UI -->
+      <div id="repo-report-detail" style="display: none; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+          <button class="btn" onclick="showRepoDashboard()" style="padding: 4px 10px;">&larr; Back to Dashboard</button>
+          <div id="detail-report-title" style="font-weight: 600; color: var(--cyan); font-size:12px;">Engineering Report: -</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" onclick="downloadGitReport('pdf')" style="padding: 4px 10px;">PDF</button>
+            <button class="btn" onclick="downloadGitReport('html')" style="padding: 4px 10px;">HTML</button>
+            <button class="btn" onclick="downloadGitReport('md')" style="padding: 4px 10px;">Markdown</button>
+          </div>
+        </div>
+        <div style="max-height: 230px; overflow-y: auto; font-size: 11.5px; line-height: 1.5; color: #cbd5e1; display: flex; flex-direction: column; gap: 12px; padding-right: 5px;" id="report-sections-content">
+          <!-- Populated dynamically -->
         </div>
       </div>
     </div>
@@ -962,6 +1049,7 @@
       loadDocuments();
       loadConversations();
       loadSystemDiagnostics();
+      loadGitDashboard();
     }
 
     // Load Document list
@@ -986,6 +1074,8 @@
 
           const card = document.createElement("div");
           card.className = "document-card";
+          card.style.cursor = "pointer";
+          card.onclick = () => selectDocument(d.document_id, d.name);
           card.innerHTML = `
             <div class="document-card-header">
               <span style="font-weight:600; color: var(--cyan);">${d.name}</span>
@@ -1046,7 +1136,7 @@
             const listDiv = document.createElement("div");
             listDiv.className = "citation-list";
             m.citations.forEach(c => {
-              listDiv.innerHTML += `<span class="citation-tag">${c.document_id}</span>`;
+              listDiv.innerHTML += `<span class="citation-tag" style="cursor:pointer;" onclick="viewCitation('${c.document_id}')">${c.document_id}</span>`;
             });
             msgDiv.appendChild(listDiv);
           }
@@ -1173,7 +1263,7 @@
             const listDiv = document.createElement("div");
             listDiv.className = "citation-list";
             payload.citations.forEach(c => {
-              listDiv.innerHTML += `<span class="citation-tag">${c.document_id}</span>`;
+              listDiv.innerHTML += `<span class="citation-tag" style="cursor:pointer;" onclick="viewCitation('${c.document_id}')">${c.document_id}</span>`;
             });
             assistantMsg.appendChild(listDiv);
           }
@@ -1311,6 +1401,9 @@ Exception: ${msg}
           document.getElementById(`tab-${i}`).classList.remove("active");
         }
       });
+      if (index === 7) {
+        loadGitDashboard();
+      }
     }
 
     // Export debug report download
@@ -1338,6 +1431,309 @@ Exception: ${msg}
       downloadAnchor.remove();
       addEventLog("Debug report JSON exported");
     }
+
+    // Document Viewer JS Helper
+    async function selectDocument(docId, docName) {
+      switchTab(5);
+      const titleDiv = document.getElementById("doc-viewer-title");
+      const contentDiv = document.getElementById("doc-viewer-content");
+      
+      titleDiv.textContent = `Active Document: ${docName} (ID: ${docId})`;
+      contentDiv.textContent = "Loading content...";
+      
+      try {
+        const res = await fetch(`${API_BASE}/api/documents/${docId}/content`);
+        const data = await res.json();
+        if (data.content) {
+          contentDiv.textContent = data.content;
+        } else {
+          contentDiv.textContent = "No content available.";
+        }
+      } catch (e) {
+        contentDiv.textContent = `Error loading content: ${e}`;
+      }
+    }
+
+    // Citation Viewer JS Helper
+    let currentCitationDocId = "";
+    let currentCitationDocName = "";
+
+    function viewCitation(docId) {
+      switchTab(6);
+      currentCitationDocId = docId;
+      
+      const snippetDiv = document.getElementById("citation-viewer-snippet");
+      const metaSpan = document.getElementById("citation-viewer-metadata");
+      const viewFullBtn = document.getElementById("citation-view-full-btn");
+      
+      snippetDiv.innerHTML = `<span style="color: var(--text-mute); font-style: italic;">Finding matching citation context...</span>`;
+      metaSpan.innerHTML = "";
+      viewFullBtn.disabled = true;
+      
+      // Look up in telemetryHistory
+      let found = false;
+      for (let i = telemetryHistory.length - 1; i >= 0; i--) {
+        const meta = telemetryHistory[i];
+        if (meta.retrieved_chunks) {
+          const chunk = meta.retrieved_chunks.find(c => c.document_id === docId);
+          if (chunk) {
+            currentCitationDocName = chunk.document_name;
+            snippetDiv.textContent = `"${chunk.snippet}"`;
+            metaSpan.innerHTML = `
+              <span>Document: <strong>${chunk.document_name}</strong></span> | 
+              <span>Similarity Score: <strong>${chunk.similarity_score}</strong></span> | 
+              <span>Section: <strong>${chunk.section_name}</strong></span> | 
+              <span>Chunk ID: <strong>${chunk.chunk_id}</strong></span>
+            `;
+            viewFullBtn.disabled = false;
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      if (!found) {
+        snippetDiv.innerHTML = `<span style="color: var(--yellow); font-style: italic;">Citation context snippet not cached in current session. Let's load the full document text directly.</span>`;
+        metaSpan.innerHTML = `<span>Document ID: <strong>${docId}</strong></span>`;
+        currentCitationDocName = `Doc: ${docId}`;
+        viewFullBtn.disabled = false;
+      }
+    }
+
+    function viewCitationFullDoc() {
+      if (currentCitationDocId) {
+        selectDocument(currentCitationDocId, currentCitationDocName);
+      }
+    }
+
+    // Repository Dashboard & Report UI JS Helpers
+    let gitHistoryList = [];
+    let currentSelectedReport = null;
+
+    async function loadGitDashboard() {
+      try {
+        const res = await fetch(`${API_BASE}/github/history?workspace_id=${currentWorkspaceId}`);
+        const data = await res.json();
+        
+        gitHistoryList = data.history || [];
+        renderGitReposTable();
+      } catch (e) {
+        addEventLog("Failed to load GitHub reports history.");
+      }
+    }
+
+    function renderGitReposTable() {
+      const tbody = document.querySelector("#git-repos-table tbody");
+      tbody.innerHTML = "";
+      
+      if (gitHistoryList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 15px; color: var(--text-mute); font-style: italic; text-align: center;">No analyzed GitHub repositories found. Run an analysis above.</td></tr>`;
+        return;
+      }
+      
+      gitHistoryList.forEach(report => {
+        const dateStr = new Date(report.timestamp).toLocaleString();
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid var(--border)";
+        tr.innerHTML = `
+          <td style="padding: 6px 12px; font-weight: bold; color: var(--cyan);">${report.repository}</td>
+          <td style="padding: 6px 12px;">${report.repository_overview.branch || "main"}</td>
+          <td style="padding: 6px 12px; color: var(--text-mute);">${dateStr}</td>
+          <td style="padding: 6px 12px; font-weight: bold;">${report.engineering_quality.maintainability_score || 0}</td>
+          <td style="padding: 6px 12px; font-weight: bold; color: var(--green);">${report.repository_health.overall_health_score || 0}</td>
+          <td style="padding: 6px 12px; text-align: right;">
+            <button class="btn" onclick="viewGitReport('${report.report_id}')" style="padding: 2px 8px; font-size: 10.5px;">View Report</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function viewGitReport(reportId) {
+      const report = gitHistoryList.find(r => r.report_id === reportId);
+      if (!report) return;
+      
+      currentSelectedReport = report;
+      
+      document.getElementById("repo-dashboard-main").style.display = "none";
+      document.getElementById("repo-report-detail").style.display = "flex";
+      
+      document.getElementById("detail-report-title").textContent = `Engineering Report: ${report.repository} (ID: ${reportId})`;
+      
+      const sectionsBox = document.getElementById("report-sections-content");
+      sectionsBox.innerHTML = "";
+      
+      // Render the 12 sections of the report
+      const sections = [
+        { title: "1. Executive Summary", content: `<p>${report.executive_summary}</p>` },
+        { title: "2. Repository Overview", content: `
+          <div class="debug-grid-three">
+            <div class="debug-row"><span class="label">Files Count</span><span class="val">${report.repository_overview.file_count}</span></div>
+            <div class="debug-row"><span class="label">Total Lines</span><span class="val">${report.repository_overview.total_lines}</span></div>
+            <div class="debug-row"><span class="label">Branch</span><span class="val">${report.repository_overview.branch}</span></div>
+            <div class="debug-row"><span class="label">Total Commits</span><span class="val">${report.repository_overview.total_commits}</span></div>
+            <div class="debug-row"><span class="label">Contributors</span><span class="val">${report.repository_overview.active_contributors}</span></div>
+            <div class="debug-row"><span class="label">Bus Factor</span><span class="val">${report.repository_overview.bus_factor}</span></div>
+          </div>
+        `},
+        { title: "3. Technology Stack", content: `
+          <div>
+            <div style="margin-bottom: 6px;"><strong>Languages:</strong> ${report.technology_stack.languages.join(", ") || "None detected"}</div>
+            <div><strong>Frameworks:</strong> ${report.technology_stack.frameworks.join(", ") || "None detected"}</div>
+          </div>
+        `},
+        { title: "4. Architecture Style", content: `<p>${report.architecture_style}</p>` },
+        { title: "5. Engineering Quality Audit", content: `
+          <div class="debug-grid-three">
+            <div class="debug-row"><span class="label">Maintainability Score</span><span class="val">${report.engineering_quality.maintainability_score} / 100</span></div>
+            <div class="debug-row"><span class="label">Complexity Score</span><span class="val">${report.engineering_quality.complexity_score} / 100</span></div>
+            <div class="debug-row"><span class="label">Detected Patterns</span><span class="val">${report.engineering_quality.detected_patterns.join(", ") || "None"}</span></div>
+            <div class="debug-row"><span class="label">Anti-Patterns</span><span class="val">${report.engineering_quality.detected_anti_patterns.join(", ") || "None"}</span></div>
+            <div class="debug-row"><span class="label">Circular Deps</span><span class="val">${report.engineering_quality.circular_dependencies.length} detected</span></div>
+          </div>
+        `},
+        { title: "6. Repository Health & Cadence", content: `
+          <div class="debug-grid-three">
+            <div class="debug-row"><span class="label">Overall Health Score</span><span class="val">${report.repository_health.overall_health_score} / 100</span></div>
+            <div class="debug-row"><span class="label">Releases Tagged</span><span class="val">${report.repository_health.releases.length}</span></div>
+            <div class="debug-row"><span class="label">Burst Activities</span><span class="val">${report.repository_health.burst_activities.length} burst periods</span></div>
+          </div>
+        `},
+        { title: "7. Documentation Quality", content: `
+          <div class="debug-grid-three">
+            <div class="debug-row"><span class="label">Has README.md</span><span class="val">${report.documentation_quality.has_readme ? "Yes" : "No"}</span></div>
+            <div class="debug-row"><span class="label">Has Changelog</span><span class="val">${report.documentation_quality.has_changelog ? "Yes" : "No"}</span></div>
+            <div class="debug-row"><span class="label">Has License</span><span class="val">${report.documentation_quality.has_license ? "Yes" : "No"}</span></div>
+            <div class="debug-row"><span class="label">Readability Index</span><span class="val">${report.documentation_quality.readability_score}</span></div>
+            <div class="debug-row"><span class="label">Freshness (days)</span><span class="val">${report.documentation_quality.freshness_days} days</span></div>
+          </div>
+        `},
+        { title: "8. Key Strengths", content: `<ul>${report.strengths.map(s => `<li>${s}</li>`).join("") || "<li>None</li>"}</ul>` },
+        { title: "9. Engineering Risks", content: `<ul>${report.engineering_risks.map(r => `<li style="color:var(--red);">${r}</li>`).join("") || "<li>None</li>"}</ul>` },
+        { title: "10. Improvement Roadmap", content: `<ul>${report.improvement_roadmap.map(r => `<li>${r}</li>`).join("") || "<li>None</li>"}</ul>` },
+        { title: "11. Developer Skill Evidence", content: `
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${report.developer_skill_evidence.map(s => `
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 4px; border-left: 3px solid var(--purple);">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:4px;">
+                  <span>${s.skill_name}</span>
+                  <span style="color:var(--cyan); font-size:10px;">${s.experience_level}</span>
+                </div>
+                <div>${s.evidence_description}</div>
+              </div>
+            `).join("") || "<div>No evidence indexed.</div>"}
+          </div>
+        `},
+        { title: "12. Profile Updates & Version", content: `<p>Registered under knowledge profile registry version ${report.knowledge_profile_version}. Pipeline stage: Completed.</p>` }
+      ];
+      
+      sections.forEach(sec => {
+        const div = document.createElement("div");
+        div.style.margin = "10px 0";
+        div.innerHTML = `
+          <div style="font-weight: bold; color: var(--text-main); margin-bottom: 4px; font-size: 11.5px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 2px;">${sec.title}</div>
+          <div>${sec.content}</div>
+        `;
+        sectionsBox.appendChild(div);
+      });
+    }
+
+    function showRepoDashboard() {
+      document.getElementById("repo-dashboard-main").style.display = "block";
+      document.getElementById("repo-report-detail").style.display = "none";
+      currentSelectedReport = null;
+      loadGitDashboard();
+    }
+
+    async function triggerGitAnalysis(runAsync) {
+      const urlInput = document.getElementById("git-repo-url");
+      const branchInput = document.getElementById("git-repo-branch");
+      
+      const repoUrl = urlInput.value.trim();
+      const branch = branchInput.value.trim() || "main";
+      
+      if (!repoUrl) {
+        alert("Please enter a repository path or URL (e.g. .)");
+        return;
+      }
+      
+      addEventLog(`Triggering GitHub Analysis: ${repoUrl} (${branch})`);
+      
+      const payload = {
+        repository_url: repoUrl,
+        branch: branch,
+        workspace_id: currentWorkspaceId,
+        user_id: "admin",
+        options: { "async": runAsync }
+      };
+      
+      try {
+        const res = await fetch(`${API_BASE}/github/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (data.job_id) {
+          addEventLog(`Analysis started asynchronously. Job ID: ${data.job_id}`);
+          pollGitJobStatus(data.job_id);
+        } else if (data.report_id) {
+          addEventLog("Analysis completed synchronously!");
+          await loadGitDashboard();
+          viewGitReport(data.report_id);
+        } else {
+          addEventLog("Analysis failed or returned unexpected payload.");
+        }
+      } catch (e) {
+        addEventLog(`Analysis trigger connection error: ${e}`);
+      }
+    }
+
+    function pollGitJobStatus(jobId) {
+      const progressContainer = document.getElementById("git-progress-container");
+      const progressMsg = document.getElementById("git-progress-msg");
+      const progressPct = document.getElementById("git-progress-pct");
+      const progressBar = document.getElementById("git-progress-bar");
+      
+      progressContainer.style.display = "block";
+      
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/github/status/${jobId}`);
+          const job = await res.json();
+          
+          progressMsg.textContent = job.status_msg || "Processing...";
+          progressPct.textContent = `${job.progress}%`;
+          progressBar.style.width = `${job.progress}%`;
+          
+          if (job.status === "completed") {
+            clearInterval(interval);
+            progressContainer.style.display = "none";
+            addEventLog("Background GitHub analysis finished!");
+            await loadGitDashboard();
+            viewGitReport(job.report_id);
+          } else if (job.status === "failed") {
+            clearInterval(interval);
+            progressContainer.style.display = "none";
+            addEventLog(`Job execution failed: ${job.status_msg}`);
+            alert(`Analysis job failed: ${job.status_msg}`);
+          }
+        } catch (e) {
+          clearInterval(interval);
+          progressContainer.style.display = "none";
+          addEventLog("Poller connection lost.");
+        }
+      }, 1000);
+    }
+
+    function downloadGitReport(format) {
+      if (!currentSelectedReport) return;
+      const id = currentSelectedReport.report_id;
+      window.open(`${API_BASE}/github/report/${id}?export=${format}`);
+      addEventLog(`Exporting GitHub Report ${id} as ${format.toUpperCase()}`);
+    }
+
 
     // Bootstrap Console dashboard
     checkHealth();

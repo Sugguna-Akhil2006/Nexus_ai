@@ -8,6 +8,7 @@ import ProfileSettings from "@/components/settings/profile-settings";
 import ApiKeysManager, { ApiKeyItem } from "@/components/settings/api-keys-manager";
 import PreferenceSwitch from "@/components/settings/preference-switch";
 import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
+import WorkspaceSettingsPanel from "@/components/settings/workspace-settings";
 
 // Mock user profiles database
 const INITIAL_PROFILE = {
@@ -93,6 +94,8 @@ export default function SettingsPage() {
           initialProfile={profile} 
           onSave={handleSaveProfile} 
         />
+
+        <WorkspaceSettingsPanel />
 
         {/* API Credentials Card */}
         <ApiKeysManager 

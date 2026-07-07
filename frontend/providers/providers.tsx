@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { ReactNode, useState } from "react";
 import { AuthProvider } from "@/providers/auth-provider";
+import { WorkspaceProvider } from "@/providers/workspace-provider";
 
 export default function Providers({
     children,
@@ -28,10 +29,12 @@ export default function Providers({
         >
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
-                    <TooltipProvider>
-                        {children}
-                        <Toaster richColors position="top-right" />
-                    </TooltipProvider>
+                    <WorkspaceProvider>
+                        <TooltipProvider>
+                            {children}
+                            <Toaster richColors position="top-right" />
+                        </TooltipProvider>
+                    </WorkspaceProvider>
                 </AuthProvider>
             </QueryClientProvider>
         </ThemeProvider>

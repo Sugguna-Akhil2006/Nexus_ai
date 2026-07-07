@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Folder, FolderOpen, FileText, ChevronDown, ChevronRight, FolderPlus, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import DragDropUpload from "@/components/common/drag-drop-upload";
 
 export interface FileItem {
   name: string;
@@ -66,11 +67,15 @@ export default function FileExplorer({
       </div>
 
       {/* Directory Hierarchy */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-        {folders.map((folder) => {
-          const isExpanded = !!expandedFolders[folder.id];
-          return (
-            <div key={folder.id} className="space-y-0.5">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
+        {/* Upload Zone */}
+        <DragDropUpload />
+
+        <div className="space-y-1">
+          {folders.map((folder) => {
+            const isExpanded = !!expandedFolders[folder.id];
+            return (
+              <div key={folder.id} className="space-y-0.5">
               {/* Folder Line */}
               <div
                 onClick={() => toggleFolder(folder.id)}
@@ -124,6 +129,7 @@ export default function FileExplorer({
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Storage Capacity Gauge */}

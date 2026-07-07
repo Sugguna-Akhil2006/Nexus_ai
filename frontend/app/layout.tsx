@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: "The AI Workspace for Teams",
 };
 
+import OfflineIndicator from "@/components/common/offline-indicator";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,7 +23,10 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <OfflineIndicator />
+        </Providers>
       </body>
     </html>
   );
