@@ -11,6 +11,7 @@ import StatsSection from "@/components/marketplace/stats-section";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import EmptyState from "@/components/common/empty-state";
+import PageContainer from "@/components/common/page-container";
 
 // Mock categories dataset matching HTML icons and text descriptions
 const CATEGORIES: CategoryData[] = [
@@ -100,40 +101,28 @@ const AGENT_MARKET_ITEMS: AgentMarketplaceItem[] = [
     tag: "Trending",
     category: "security",
     coverUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuC2tyty80ysgb9eH_wz0r3eh8de6a4GcUqrIQ-j2MokABSqvvoeRCdeFAfLc6_i1KhTyjo7MwXvtOFlHA5YIZEMO-V6qzh-vhm-Y8chdadnFjhQQ2ugGkFugNqs56eKyDWDtapFnurtUorrvH_rlB8-0PCVB7lS8xeEb8whL1ZybQ2rr7RXMMOKkX6enJNY3xIpXHQXjzOorFFDqSx9iYKMDEDrvBANhreCdZMdwwF4OY3EuGIkjU8-VgcSkZah1XfcQhtNwzYLQr9P",
-    initials: ["TR"],
-    plusCount: 2,
+    initials: ["PC"],
   },
 ];
 
-export default function AgentMarketplacePage() {
+export default function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [timeframe, setTimeframe] = useState<TimeframeValue>("week");
+  const [timeframe, setTimeframe] = useState<TimeframeValue>("all");
   const [isEmpty, setIsEmpty] = useState(false);
 
-  // Handle Category click toggles
-  const handleCategoryClick = (categoryId: string) => {
-    setSelectedCategory((prev) => (prev === categoryId ? null : categoryId));
+  const handleCategoryClick = (id: string) => {
+    setSelectedCategory(selectedCategory === id ? null : id);
   };
 
-  // Perform install action trigger callback
-  const handleInstallAgent = (agentId: string) => {
-    const item = AGENT_MARKET_ITEMS.find((a) => a.id === agentId);
-    if (item) {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1500)),
-        {
-          loading: `Adding ${item.name} to workspace pipelines...`,
-          success: `Agent "${item.name}" has been successfully added to your workspace.`,
-          error: 'Failed to install agent.',
-        }
-      );
-    }
+  const handleInstallAgent = (name: string) => {
+    toast.success(`Agent "${name}" installation requested!`, {
+      description: "Allocating memory quotas inside your workspace.",
+    });
   };
 
-  // Handle developer program signup trigger callback
   const handleDeveloperSignup = () => {
-    toast.success("Signing up for the developer program... You will be redirected to the developer documentation panel shortly.");
+    toast.info("Registering developer profile on Nexus Hub...");
   };
 
   const handleScrollToCategories = () => {
@@ -155,19 +144,24 @@ export default function AgentMarketplacePage() {
     });
   }, [selectedCategory, searchQuery]);
 
+  const toolbarActions = (
+    <Button 
+      variant="ghost" 
+      size="xs" 
+      onClick={() => setIsEmpty(!isEmpty)} 
+      className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors bg-transparent border-none"
+    >
+      {isEmpty ? "● Show Marketplace" : "○ Simulate Empty State"}
+    </Button>
+  );
+
   return (
-    <div className="space-y-8 md:space-y-12 relative">
-      <div className="absolute top-0 right-0 z-10">
-        <Button 
-          variant="ghost" 
-          size="xs" 
-          onClick={() => setIsEmpty(!isEmpty)} 
-          className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-        >
-          {isEmpty ? "● Show Marketplace" : "○ Simulate Empty State"}
-        </Button>
-      </div>
-      
+    <PageContainer
+      title="Integrations Marketplace"
+      description="Browse, install, and configure specialized LLM agent components, classifiers, and tool integrations."
+      icon={<Store className="size-8 text-primary shrink-0" />}
+      toolbar={toolbarActions}
+    >
       {/* Hero section banner */}
       <HeroBanner 
         onExplore={handleScrollToCategories}
@@ -189,7 +183,7 @@ export default function AgentMarketplacePage() {
           />
         </div>
       ) : (
-        <>
+        <div className="space-y-8">
           {/* Categories Bento (Section IDs mapped for smooth scrolling) */}
           <section id="categories-section" className="space-y-6 scroll-mt-6 select-none">
             <div className="flex items-center justify-between">
@@ -199,7 +193,7 @@ export default function AgentMarketplacePage() {
               <Button
                 variant="link"
                 onClick={() => setSelectedCategory(null)}
-                className="text-primary hover:text-primary/80 font-semibold p-0 h-auto cursor-pointer text-xs md:text-sm flex items-center gap-1"
+                className="text-primary hover:text-primary/80 font-semibold p-0 h-auto cursor-pointer text-xs md:text-sm flex items-center gap-1 bg-transparent border-none"
               >
                 Clear Filters 
                 <ArrowRight className="size-4" />
@@ -226,7 +220,7 @@ export default function AgentMarketplacePage() {
                 placeholder="Filter active cards list..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2 text-xs md:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2 text-xs md:text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-on-surface-variant/40"
               />
             </div>
 
@@ -265,11 +259,11 @@ export default function AgentMarketplacePage() {
               </div>
             )}
           </section>
-        </>
+        </div>
       )}
 
       {/* Bottom statistics indicators */}
       <StatsSection />
-    </div>
+    </PageContainer>
   );
 }

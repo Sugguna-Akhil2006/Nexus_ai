@@ -1,17 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ChevronDown, ListFilter, ArrowUpDown } from "lucide-react";
+import { Search, ChevronDown, ListFilter, ArrowUpDown, MoreVertical, ShieldAlert, Ban, RefreshCw, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
 
 export interface OrganizationItem {
   id: string;
   name: string;
-  planType: string; // Enterprise, Scale, Developer
+  planType: string;
   status: "Active" | "Suspended";
   lastActivity: string;
-  colorClass: string; // bg-indigo-500/20 text-indigo-400 etc
-  letter: string; // V, K, N, A
+  colorClass: string;
+  letter: string;
 }
 
 interface OrganizationsTableProps {
@@ -35,6 +46,31 @@ export default function OrganizationsTable({
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+
+  const handleToggleStatus = (id: string) => {
+    setOrgs((prev) =>
+      prev.map((o) => {
+        if (o.id === id) {
+          const nextStatus = o.status === "Active" ? "Suspended" : "Active";
+          toast.info(`Status for organization "${o.name}" updated to ${nextStatus}.`);
+          return { ...o, status: nextStatus };
+        }
+        return o;
+      })
+    );
+  };
+
+  const handleChangePlan = (id: string, newPlan: string) => {
+    setOrgs((prev) =>
+      prev.map((o) => {
+        if (o.id === id) {
+          toast.success(`Plan for "${o.name}" changed to ${newPlan}.`);
+          return { ...o, planType: newPlan };
+        }
+        return o;
+      })
+    );
   };
 
   // Filter orgs
@@ -84,46 +120,44 @@ export default function OrganizationsTable({
           <thead>
             <tr className="bg-surface-container/30 text-on-surface-variant/90 border-b border-outline-variant/30 uppercase text-[10px] md:text-[11px] tracking-wider font-bold select-none">
               
-              {/* Sortable org name */}
               <th
                 onClick={() => handleSort("name")}
-                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors"
+                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors font-sans"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 font-sans">
                   Org Name
                   <ArrowUpDown className="size-3 text-on-surface-variant" />
                 </div>
               </th>
               
-              {/* Sortable Plan */}
               <th
                 onClick={() => handleSort("planType")}
-                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors"
+                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors font-sans"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 font-sans">
                   Plan Type
                   <ArrowUpDown className="size-3 text-on-surface-variant" />
                 </div>
               </th>
 
-              {/* Status */}
               <th
                 onClick={() => handleSort("status")}
-                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors"
+                className="px-6 py-4 font-bold cursor-pointer hover:text-on-surface transition-colors font-sans"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 font-sans">
                   Status
                   <ArrowUpDown className="size-3 text-on-surface-variant" />
                 </div>
               </th>
 
-              <th className="px-6 py-4 font-bold">Last Activity</th>
+              <th className="px-6 py-4 font-bold font-sans">Last Activity</th>
+              <th className="px-6 py-4 font-bold text-right font-sans">Actions</th>
             </tr>
           </thead>
           
           <tbody className="divide-y divide-outline-variant/10 select-text font-medium">
             {sortedOrgs.map((org) => (
-              <tr key={org.id} className="hover:bg-surface-container-high/35 transition-colors">
+              <tr key={org.id} className="hover:bg-surface-container-high/35 transition-colors group">
                 
                 {/* Org Avatar Letter & Name */}
                 <td className="px-6 py-4">
@@ -165,12 +199,61 @@ export default function OrganizationsTable({
                   {org.lastActivity}
                 </td>
 
+                {/* Actions Dropdown */}
+                <td className="px-6 py-4 text-right select-none">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-1.5 rounded hover:bg-surface-container-highest text-on-surface-variant/60 hover:text-on-surface transition-all cursor-pointer bg-transparent border-none">
+                        <MoreVertical className="size-4 shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44 bg-surface border border-outline-variant p-1 shadow-lg text-on-surface z-50">
+                      <DropdownMenuItem className="cursor-pointer hover:bg-surface-container-high px-2 py-1.5 text-xs rounded flex items-center gap-2" onClick={() => handleToggleStatus(org.id)}>
+                        <Ban className="size-3.5" />
+                        {org.status === "Active" ? "Suspend Org" : "Activate Org"}
+                      </DropdownMenuItem>
+
+                      {/* Sub-menu to switch plans */}
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="cursor-pointer hover:bg-surface-container-high px-2 py-1.5 text-xs rounded flex items-center gap-2">
+                          <RefreshCw className="size-3.5" />
+                          Change Plan
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="bg-surface border border-outline-variant p-1 shadow-lg text-on-surface z-50">
+                          {["Enterprise", "Scale", "Developer"].map((p) => (
+                            <DropdownMenuItem
+                              key={p}
+                              className={cn(
+                                "cursor-pointer hover:bg-surface-container-high px-2 py-1.5 text-xs rounded",
+                                org.planType === p && "text-primary font-bold bg-primary/5"
+                              )}
+                              onClick={() => handleChangePlan(org.id, p)}
+                            >
+                              {p}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+
+                      <DropdownMenuSeparator className="bg-outline-variant" />
+                      <DropdownMenuItem
+                        className="cursor-pointer hover:bg-red-500/10 text-red-400 px-2 py-1.5 text-xs rounded flex items-center gap-2"
+                        onClick={() => {
+                          setOrgs((prev) => prev.filter((o) => o.id !== org.id));
+                          toast.success(`Organization "${org.name}" deleted.`);
+                        }}
+                      >
+                        Delete Org
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
               </tr>
             ))}
 
             {sortedOrgs.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-center py-6 text-xs text-on-surface-variant/40 italic select-none">
+                <td colSpan={5} className="text-center py-6 text-xs text-on-surface-variant/40 italic select-none">
                   No organizations found matching queries.
                 </td>
               </tr>

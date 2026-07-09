@@ -1,17 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Bot } from "lucide-react";
+import { Search, Bot, Sliders } from "lucide-react";
 import AgentFilters, { FilterValue } from "@/components/agents/agent-filters";
 import AgentCard, { AgentData } from "@/components/agents/agent-card";
 import CreateAgentCard from "@/components/agents/create-agent-card";
 import StatsBar from "@/components/agents/stats-bar";
-import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import { toast } from "sonner";
 import EmptyState from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import PageContainer from "@/components/common/page-container";
 
-// Initial mock agents dataset
+// Initial mock agents dataset with runs count and error rate statistics
 const INITIAL_AGENTS: AgentData[] = [
   {
     id: "agent-1",
@@ -25,6 +33,9 @@ const INITIAL_AGENTS: AgentData[] = [
       key2: "Latency",
       val2: "~420ms",
     },
+    health: "healthy",
+    runsCount: 1420,
+    errorRate: "0.2%",
   },
   {
     id: "agent-2",
@@ -38,6 +49,9 @@ const INITIAL_AGENTS: AgentData[] = [
       key2: "Memory",
       val2: "128GB Context",
     },
+    health: "stopped",
+    runsCount: 89,
+    errorRate: "1.1%",
   },
   {
     id: "agent-3",
@@ -52,6 +66,9 @@ const INITIAL_AGENTS: AgentData[] = [
       val2: "Secure",
       val2Color: "green",
     },
+    health: "busy",
+    runsCount: 512,
+    errorRate: "0.0%",
   },
   {
     id: "agent-4",
@@ -65,6 +82,9 @@ const INITIAL_AGENTS: AgentData[] = [
       key2: "Precision",
       val2: "99.8%",
     },
+    health: "healthy",
+    runsCount: 12040,
+    errorRate: "0.05%",
   },
   {
     id: "agent-5",
@@ -79,127 +99,143 @@ const INITIAL_AGENTS: AgentData[] = [
       val2: "24% MoM",
       val2Color: "green",
     },
+    health: "healthy",
+    runsCount: 3824,
+    errorRate: "0.15%",
   },
 ];
 
-// Team avatars hosted on authorized domains
 const TEAM_AVATARS = [
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDTODzNl244d0kyeW9QZRzf7Ujg4rm4QUcS7DcAx3lEOeQ3M2vPx05cKAKYvoEUwQMpTv-Xzugk4zT5Ds9rLH9wb4nGkmDr6whsh7NwVoq621bw9NwdUnxT-MEtucb7vuJ4pUHB_kJuK3Z4GAA5DxJysqkB20HtwGN8WKb-OYtRxWOZUdI4CH73mNS7aayr0mm_jrROabs22-SNW04fuDIraa9k7joV7lmxXj9GFuYUV2nS1BAGu_PK8nfDL8JHhmpVTEPnrA6FPV5E",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDFErOlpB5Iktkf3bCWYjOaykFqI7uliGnxmBUBvXdFolnJqEG0WAkOqPsUt3ou99AbgCPnsZD4zddcH7jrgpoyU8mWs4nVwkLn4nB5ZXDjec0Kc2eLfZLaP4UqJWAS0TU0_TluRqEhV1A73DkSt1JmZhG_RSsZSXGao8HYBVVv7uLmtMcxD9eCXM4_i-p1lRvfD0WDFmSeFcHg8IJXP0E7m9nwB8H3PppjSWiJ6YiJlchm-F9LN8u-HZ3FesREv1R3iqIzIWQUcX-s",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAXMefxTWWcMpMEoW5ttZYChNbaq6ZXNWuxirg8SIrkmg7YFvX4lympAtQ2GaVE7FRkRJZTYWzx6EzdQDb3jjFIk6hvzMHOH3jj7Vjcy_C8Tq82ccHUAe_teKG7u1SwNAZRfufK6VNKxB0PX_rVQe9G2w3IEEH9JlIfviMQT-hP6amsiABELcT1xfrPeWIBus9oQhoEXiBEHnIuf3MWDAj8a_WhKrmpO9Dk-4SQYn-RYd4JRk03ELMeKdmYIY75knrXQZ5tA4wIV01K",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuCH8hs7VjzQp-v6XU8c99znid5XEHV4JB_-WEPJ49g6YQjyesZN0LwaaVHriJAWBmo-_9YJHekWtFSBSgBEaF85zp0swkRN1cx89tOPtzjKsrePMiWB1TSURPMNrxzYHgC5ZHzdmjkpJLteBt5dUqYSrFx0BSl-9rD66uDU2096SehL_rAjcu4sUCvD4uk7CRnwfVzE-nndk_pN3WwSnXC7kUtOIcRiNoHzdrx5WFDDlYpVE_dB8QeMlkCd_rOpi1i5laBB5HkrDtwC",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuCCOi1jGQaPkQLqV4ZhsQb7DInTmE1U9dJA5QocSEs35Dq340lq31HdjyZ9ZFYo7x71o41gR3A0Cs0F4XypUgIhbyLniuEHUQlnprscIT-Nt58CZO-yxecM1I8o1PAlngGCtG1WYEgI40zHc0RzoKelNzNdW0Dlc2UZ20nNOtDfPTx-3goVvZ9KDBM-BxOpwn4G03Zy6zfSF_34K_2_mjaOK37LaqH7q9RcQScdCtIwJW4S2l5FkjsJYgI-FSxPkMefOEzgK4NuywG3",
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuA3MoYSYYxljBKeD1LPVnMlh1GRqzGT-0TPiEk3dCPcouz2FfLQuitJSbZKDvMjXQOq6ixjnsbx3l6hsfJPOLv7ciaUzn_PmDfvXonTcwEVmgTmLR9l6WxXgtyheASMa1QK2InnI3L65Q-hJ3D98-0uWyJcz3Jd5WgFn4Liy-Z9p6RG5ax7_p1wL6lvGKnoPQYRIOcpzEJlr9oV5R0yjunh8FVal9HJ8OFI8OFcGupCvATsxR0l_A2pPwP8DZPp-1sIRLeuZiI65wJh",
 ];
 
-export default function AgentDirectoryPage() {
+export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentData[]>(INITIAL_AGENTS);
-  const [filter, setFilter] = useState<FilterValue>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<FilterValue>("all");
   const [isEmpty, setIsEmpty] = useState(false);
 
-  // Filter & search operations
-  const filteredAgents = agents.filter((agent) => {
-    // Status Filter Check
-    if (filter === "production" && agent.status !== "active") return false;
-    if (filter === "drafts" && agent.status !== "draft") return false;
+  // Form states inside creation Dialog
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newCaps, setNewCaps] = useState("");
+  const [newIconType, setNewIconType] = useState<AgentData["iconType"]>("code");
 
-    // Search query check
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      return (
-        agent.name.toLowerCase().includes(query) ||
-        agent.description.toLowerCase().includes(query) ||
-        agent.metrics.val1.toLowerCase().includes(query)
-      );
-    }
-
-    return true;
-  });
-
-  const activeAgentsCount = agents.filter(a => a.status === "active").length;
-
-  // Configure trigger
-  const handleConfigure = (id: string) => {
-    const agentName = agents.find((a) => a.id === id)?.name || "Agent";
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: `Initializing configure pipeline for: ${agentName}...`,
-        success: `${agentName} configurations loaded. Loaded hyperparameter weights and sandbox environments.`,
-        error: 'Configuration build failed.',
-      }
+  const handleStatusToggle = (id: string) => {
+    setAgents((prev) =>
+      prev.map((agent) => {
+        if (agent.id === id) {
+          const nextHealth = agent.health === "stopped" ? "healthy" : "stopped";
+          toast.success(
+            `Agent "${agent.name}" state toggled to: ${
+              nextHealth === "healthy" ? "RUNNING" : "STOPPED"
+            }`
+          );
+          return { ...agent, health: nextHealth };
+        }
+        return agent;
+      })
     );
   };
 
-  // Create new agent modal prompt
-  const handleCreateAgent = () => {
-    const name = prompt("Enter a name for the new autonomous agent:");
-    if (!name || !name.trim()) return;
+  const handleConfigure = (id: string) => {
+    const agent = agents.find((a) => a.id === id);
+    if (agent) {
+      toast.info(`Opening configuration panel for: ${agent.name}`);
+    }
+  };
 
-    const description = prompt("Describe the agent's responsibilities:") || "Custom user-defined autonomous workflow agent.";
+  const handleDeleteAgent = (id: string) => {
+    const agent = agents.find((a) => a.id === id);
+    setAgents((prev) => prev.filter((a) => a.id !== id));
+    if (agent) {
+      toast.error(`Agent "${agent.name}" removed from local directory.`);
+    }
+  };
 
-    const capabilities = prompt("Specify key capabilities (comma separated):") || "Python, REST APIs";
+  // Filter and search computation logic
+  const filteredAgents = agents.filter((agent) => {
+    const queryMatch =
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.metrics.val1.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (filter === "all") return queryMatch;
+    if (filter === "production") return queryMatch && agent.status === "active";
+    if (filter === "drafts") return queryMatch && agent.status === "draft";
+    return queryMatch;
+  });
+
+  const activeAgentsCount = agents.filter((a) => a.health !== "stopped").length;
+
+  const handleCreateAgentSubmit = () => {
+    if (!newName.trim()) {
+      toast.error("Please enter a valid agent name.");
+      return;
+    }
 
     const newAgent: AgentData = {
       id: `agent-${Date.now()}`,
-      name: name.trim(),
-      description: description.trim(),
+      name: newName.trim(),
+      description: newDesc.trim() || "No description provided.",
       status: "draft",
-      iconType: "code",
+      iconType: newIconType,
       metrics: {
         key1: "Capabilities",
-        val1: capabilities,
+        val1: newCaps.trim() || "Python, REST APIs",
         key2: "Memory",
         val2: "64GB Context",
       },
+      health: "stopped",
+      runsCount: 0,
+      errorRate: "0.0%",
     };
 
     setAgents([...agents, newAgent]);
-    toast.success(`Agent "${name.trim()}" successfully initialized as a draft in directory!`);
+    toast.success(`Agent "${newName.trim()}" initialized in draft mode.`);
+    
+    // Clear & close modal
+    setNewName("");
+    setNewDesc("");
+    setNewCaps("");
+    setNewIconType("code");
+    setShowCreateModal(false);
   };
 
-  return (
-    <section className="p-6 md:p-8 lg:p-12 overflow-y-auto h-[calc(100vh-64px)] custom-scrollbar select-none">
-      <DashboardBreadcrumbs />
-      
-      {/* Directory Header & Filters wrapper */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between mb-8 gap-6">
-        <div>
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-on-surface mb-1">
-              Agent Directory
-            </h2>
-            <Button 
-              variant="ghost" 
-              size="xs" 
-              onClick={() => setIsEmpty(!isEmpty)} 
-              className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-            >
-              {isEmpty ? "● Show Agents" : "○ Simulate Empty State"}
-            </Button>
-          </div>
-          <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
-            Manage and deploy specialized autonomous agents across your projects.
-          </p>
-        </div>
-
-        {/* Inputs cluster: Search + Tabs */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          
-          {/* Secondary Search box */}
-          <div className="relative w-full sm:w-60">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 size-4" />
-            <input
-              type="text"
-              placeholder="Search capabilities..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-9 pr-4 py-2 text-xs md:text-sm focus:outline-none focus:border-primary transition-all text-on-surface placeholder:text-on-surface-variant/40"
-            />
-          </div>
-
-          <AgentFilters value={filter} onChange={setFilter} />
-        </div>
+  const toolbarActions = (
+    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+      <Button 
+        variant="ghost" 
+        size="xs" 
+        onClick={() => setIsEmpty(!isEmpty)} 
+        className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors bg-transparent border-none mr-2"
+      >
+        {isEmpty ? "● Show Agents" : "○ Simulate Empty State"}
+      </Button>
+      <div className="relative w-full sm:w-48">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 size-4" />
+        <input
+          type="text"
+          placeholder="Search capabilities..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-primary transition-all text-on-surface placeholder:text-on-surface-variant/40"
+        />
       </div>
+      <AgentFilters value={filter} onChange={setFilter} />
+    </div>
+  );
 
+  return (
+    <PageContainer
+      title="Agent Directory"
+      description="Manage and deploy specialized autonomous agents across your projects."
+      icon={<Bot className="size-8 text-primary shrink-0" />}
+      toolbar={toolbarActions}
+    >
       {isEmpty ? (
         <div className="py-12">
           <EmptyState
@@ -207,7 +243,7 @@ export default function AgentDirectoryPage() {
             title="No Autonomous Agents"
             description="Start building your private directory of specialized AI workforce agents. Configure custom memory limits, tool endpoints, and system constraints."
             actionLabel="Initialize First Agent"
-            onAction={handleCreateAgent}
+            onAction={() => setShowCreateModal(true)}
             accentColor="tertiary"
           />
         </div>
@@ -219,11 +255,13 @@ export default function AgentDirectoryPage() {
               key={agent.id}
               agent={agent}
               onConfigure={handleConfigure}
+              onStatusToggle={handleStatusToggle}
+              onDelete={handleDeleteAgent}
             />
           ))}
 
           {/* Create placeholder card */}
-          <CreateAgentCard onClick={handleCreateAgent} />
+          <CreateAgentCard onClick={() => setShowCreateModal(true)} />
         </div>
       )}
 
@@ -235,6 +273,86 @@ export default function AgentDirectoryPage() {
         plusCount={4}
       />
 
-    </section>
+      {/* Reusable Create Agent Dialog Modal overlay */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="max-w-md bg-surface border border-outline-variant text-on-surface p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Bot className="size-5 text-primary" />
+              Create Autonomous Agent
+            </DialogTitle>
+            <DialogDescription className="text-xs text-on-surface-variant">
+              Provision a new agent workspace. Setup capabilities and system access controls.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 my-4 text-xs md:text-sm">
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">Agent Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Code Reviewer Bot"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-xs"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">Description</label>
+              <textarea
+                placeholder="Describe the agent's primary automated tasks..."
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                rows={2}
+                className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-xs resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">Capabilities (comma separated)</label>
+              <input
+                type="text"
+                placeholder="e.g. TS, Go, Rust, Git API"
+                value={newCaps}
+                onChange={(e) => setNewCaps(e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-xs"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">Icon / Specialty Type</label>
+              <select
+                value={newIconType}
+                onChange={(e) => setNewIconType(e.target.value as any)}
+                className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-xs cursor-pointer"
+              >
+                <option value="code">Engineering & Code</option>
+                <option value="analytics">Data & Analytics</option>
+                <option value="shield">Cybersecurity & Compliance</option>
+                <option value="translation">Translation & Localization</option>
+                <option value="cloud">Cloud & Infrastructure</option>
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-end gap-2.5 pt-2">
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => setShowCreateModal(false)}
+              className="text-xs cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateAgentSubmit}
+              className="bg-primary text-primary-foreground font-semibold px-4 py-2 rounded-lg text-xs cursor-pointer border-none"
+            >
+              Initialize Agent
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </PageContainer>
   );
 }

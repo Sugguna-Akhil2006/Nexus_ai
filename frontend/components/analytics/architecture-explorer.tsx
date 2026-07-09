@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { 
   ReactFlow, 
   Background, 
@@ -17,6 +17,9 @@ import { X, Network, Share2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// Load React Flow rendering style assets
+import "@xyflow/react/dist/style.css";
+
 // Custom node typings
 interface ServiceNodeData extends Record<string, unknown> {
   label: string;
@@ -28,19 +31,18 @@ interface ServiceNodeData extends Record<string, unknown> {
 
 type ServiceNode = Node<ServiceNodeData>;
 
-// Nodes data listing
-const INITIAL_NODES: ServiceNode[] = [
+// ─── 1. DEPENDENCY NODE GRAPH DATASET ──────────────────────────────────────────
+const DEPENDENCY_NODES: ServiceNode[] = [
   {
     id: "gateway",
-    position: { x: 80, y: 150 },
+    position: { x: 40, y: 160 },
     data: {
       label: "API Gateway",
       type: "core",
-      description: "Gateway load balancer proxying incoming developer requests.",
-      connections: 28,
+      description: "Gateway proxy layer handling authentication, TLS termination, and request routing.",
+      connections: 32,
       risk: "Low",
     },
-    // Styling matching core service node (blue)
     style: {
       background: "rgba(59, 130, 246, 0.15)",
       border: "1px solid rgba(59, 130, 246, 0.4)",
@@ -49,38 +51,58 @@ const INITIAL_NODES: ServiceNode[] = [
       fontWeight: "bold",
       fontSize: "11px",
       padding: "10px",
-      width: 130,
+      width: 140,
     },
   },
   {
-    id: "auth",
-    position: { x: 280, y: 70 },
+    id: "balancer",
+    position: { x: 220, y: 160 },
     data: {
-      label: "/api/v1/auth",
+      label: "Load Balancer",
       type: "core",
-      description: "High-traffic node handling session validation and JWT issuance.",
-      connections: 14,
+      description: "Nginx traffic distributor balancing API requests across backend clusters.",
+      connections: 28,
       risk: "Low",
     },
-    selected: true, // Default selected to match HTML
     style: {
       background: "rgba(59, 130, 246, 0.15)",
-      border: "2px solid #3b82f6", // selected look
+      border: "1px solid rgba(59, 130, 246, 0.4)",
       borderRadius: "8px",
       color: "#3b82f6",
       fontWeight: "bold",
       fontSize: "11px",
       padding: "10px",
-      width: 130,
+      width: 140,
+    },
+  },
+  {
+    id: "auth",
+    position: { x: 410, y: 50 },
+    data: {
+      label: "Auth Service",
+      type: "core",
+      description: "Service managing JWT token verifications, user sessions, and key storage.",
+      connections: 12,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
     },
   },
   {
     id: "ingest",
-    position: { x: 280, y: 230 },
+    position: { x: 410, y: 270 },
     data: {
-      label: "/api/v1/ingest",
+      label: "Ingest Service",
       type: "bottleneck",
-      description: "Data ingestion endpoint throttling under payload peaks. Refactoring recommended.",
+      description: "Heavy database writer ingestion API experiencing queue throttling under peak load.",
       connections: 26,
       risk: "High",
     },
@@ -92,16 +114,37 @@ const INITIAL_NODES: ServiceNode[] = [
       fontWeight: "bold",
       fontSize: "11px",
       padding: "10px",
-      width: 130,
+      width: 140,
+    },
+  },
+  {
+    id: "inference",
+    position: { x: 410, y: 160 },
+    data: {
+      label: "Inference Engine",
+      type: "core",
+      description: "AI neural vector lookup pipeline connecting client Prompts with LLM models.",
+      connections: 24,
+      risk: "Medium",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
     },
   },
   {
     id: "authDB",
-    position: { x: 480, y: 70 },
+    position: { x: 600, y: 50 },
     data: {
       label: "User Auth DB",
       type: "database",
-      description: "Encrypted credential database holding persistent user profiles.",
+      description: "PostgreSQL master DB hosting credentials profiles.",
       connections: 4,
       risk: "Low",
     },
@@ -113,18 +156,18 @@ const INITIAL_NODES: ServiceNode[] = [
       fontWeight: "bold",
       fontSize: "11px",
       padding: "10px",
-      width: 130,
+      width: 140,
     },
   },
   {
-    id: "analyticsDB",
-    position: { x: 480, y: 230 },
+    id: "redis",
+    position: { x: 600, y: 160 },
     data: {
-      label: "Analytics DB",
+      label: "Redis Cache",
       type: "database",
-      description: "Throttled Redis cluster storing real-time tracking events.",
+      description: "In-memory cache caching frequent vector results.",
       connections: 18,
-      risk: "Medium",
+      risk: "Low",
     },
     style: {
       background: "rgba(245, 158, 11, 0.15)",
@@ -134,23 +177,447 @@ const INITIAL_NODES: ServiceNode[] = [
       fontWeight: "bold",
       fontSize: "11px",
       padding: "10px",
-      width: 130,
+      width: 140,
+    },
+  },
+  {
+    id: "rabbitmq",
+    position: { x: 600, y: 270 },
+    data: {
+      label: "RabbitMQ Queue",
+      type: "core",
+      description: "Message broker queuing asynchronous pipeline ingestion jobs.",
+      connections: 15,
+      risk: "Medium",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "worker",
+    position: { x: 780, y: 270 },
+    data: {
+      label: "Pipeline Worker",
+      type: "core",
+      description: "Python worker consumer processing batch ingestion files.",
+      connections: 8,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "timescaledb",
+    position: { x: 960, y: 270 },
+    data: {
+      label: "TimescaleDB",
+      type: "database",
+      description: "Timeseries analytical database storage cluster.",
+      connections: 10,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(245, 158, 11, 0.15)",
+      border: "1px solid rgba(245, 158, 11, 0.4)",
+      borderRadius: "8px",
+      color: "#f59e0b",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
     },
   },
 ];
 
-const INITIAL_EDGES: Edge[] = [
-  { id: "e-gate-auth", source: "gateway", target: "auth", animated: true, style: { stroke: "#424754" } },
-  { id: "e-gate-ing", source: "gateway", target: "ingest", animated: true, style: { stroke: "#ef4444" } }, // red edge for bottleneck path
-  { id: "e-auth-db", source: "auth", target: "authDB", style: { stroke: "#424754" } },
-  { id: "e-ing-db", source: "ingest", target: "analyticsDB", style: { stroke: "#424754" } },
+const DEPENDENCY_EDGES: Edge[] = [
+  { id: "de-gate-bal", source: "gateway", target: "balancer", animated: true, style: { stroke: "#3b82f6" } },
+  { id: "de-bal-auth", source: "balancer", target: "auth", style: { stroke: "#424754" } },
+  { id: "de-bal-inf", source: "balancer", target: "inference", style: { stroke: "#424754" } },
+  { id: "de-bal-ing", source: "balancer", target: "ingest", animated: true, style: { stroke: "#ef4444" } },
+  { id: "de-auth-db", source: "auth", target: "authDB", style: { stroke: "#424754" } },
+  { id: "de-inf-redis", source: "inference", target: "redis", style: { stroke: "#424754" } },
+  { id: "de-ing-rmq", source: "ingest", target: "rabbitmq", animated: true, style: { stroke: "#ef4444" } },
+  { id: "de-rmq-wrk", source: "rabbitmq", target: "worker", style: { stroke: "#424754" } },
+  { id: "de-wrk-ts", source: "worker", target: "timescaledb", style: { stroke: "#424754" } },
+];
+
+// ─── 2. FILE TREE GRAPH DATASET ────────────────────────────────────────────────
+const TREE_NODES: ServiceNode[] = [
+  {
+    id: "root",
+    position: { x: 50, y: 160 },
+    data: {
+      label: "repository-root/",
+      type: "core",
+      description: "Workspace repository root container.",
+      connections: 3,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "src",
+    position: { x: 230, y: 100 },
+    data: {
+      label: "src/",
+      type: "core",
+      description: "Source code directory containing backend implementations.",
+      connections: 4,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "config",
+    position: { x: 230, y: 220 },
+    data: {
+      label: "config/",
+      type: "core",
+      description: "Global properties definitions and service configurations.",
+      connections: 2,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "main_py",
+    position: { x: 410, y: 30 },
+    data: {
+      label: "main.py",
+      type: "core",
+      description: "Application runtime main entry point initiating server instances.",
+      connections: 5,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "routers",
+    position: { x: 410, y: 110 },
+    data: {
+      label: "routers/",
+      type: "core",
+      description: "FastAPI REST API controllers and routing namespaces.",
+      connections: 3,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "services",
+    position: { x: 410, y: 190 },
+    data: {
+      label: "services/",
+      type: "bottleneck",
+      description: "Heavy CPU pipelines where computational bottleneck risks exist.",
+      connections: 6,
+      risk: "High",
+    },
+    style: {
+      background: "rgba(239, 68, 68, 0.15)",
+      border: "1px solid rgba(239, 68, 68, 0.4)",
+      borderRadius: "8px",
+      color: "#ef4444",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "auth_py",
+    position: { x: 590, y: 70 },
+    data: {
+      label: "routers/auth.py",
+      type: "core",
+      description: "Routing endpoints for JWT validation and user permissions verification.",
+      connections: 2,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "vector_py",
+    position: { x: 590, y: 150 },
+    data: {
+      label: "services/vector.py",
+      type: "core",
+      description: "Service script executing similarity matching on vector stores.",
+      connections: 3,
+      risk: "Medium",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "db_py",
+    position: { x: 590, y: 230 },
+    data: {
+      label: "services/db.py",
+      type: "database",
+      description: "Database connectors pool initializing persistent sessions.",
+      connections: 4,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(245, 158, 11, 0.15)",
+      border: "1px solid rgba(245, 158, 11, 0.4)",
+      borderRadius: "8px",
+      color: "#f59e0b",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+];
+
+const TREE_EDGES: Edge[] = [
+  { id: "te-root-src", source: "root", target: "src", style: { stroke: "#424754" } },
+  { id: "te-root-cfg", source: "root", target: "config", style: { stroke: "#424754" } },
+  { id: "te-src-main", source: "src", target: "main_py", style: { stroke: "#424754" } },
+  { id: "te-src-rtr", source: "src", target: "routers", style: { stroke: "#424754" } },
+  { id: "te-src-srv", source: "src", target: "services", animated: true, style: { stroke: "#ef4444" } },
+  { id: "te-rtr-ath", source: "routers", target: "auth_py", style: { stroke: "#424754" } },
+  { id: "te-srv-vec", source: "services", target: "vector_py", style: { stroke: "#424754" } },
+  { id: "te-srv-db", source: "services", target: "db_py", style: { stroke: "#424754" } },
+];
+
+// ─── 3. DATA FLOW GRAPH DATASET ────────────────────────────────────────────────
+const DATA_NODES: ServiceNode[] = [
+  {
+    id: "request",
+    position: { x: 50, y: 160 },
+    data: {
+      label: "Client HTTP Request",
+      type: "core",
+      description: "HTTPS request carrying JWT authorizations and payload details.",
+      connections: 1,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "parser",
+    position: { x: 230, y: 160 },
+    data: {
+      label: "JSON Parser",
+      type: "core",
+      description: "Validation parser executing OpenAPI schema checks on requests.",
+      connections: 2,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "auth_guard",
+    position: { x: 410, y: 160 },
+    data: {
+      label: "Authentication Guard",
+      type: "core",
+      description: "Token audit gate checking user permissions and rate caps.",
+      connections: 3,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "llm_pipeline",
+    position: { x: 590, y: 160 },
+    data: {
+      label: "LLM Pipeline Dispatch",
+      type: "bottleneck",
+      description: "Heavy NLP computation block containing vector indices matching.",
+      connections: 5,
+      risk: "High",
+    },
+    style: {
+      background: "rgba(239, 68, 68, 0.15)",
+      border: "1px solid rgba(239, 68, 68, 0.4)",
+      borderRadius: "8px",
+      color: "#ef4444",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "db_log",
+    position: { x: 770, y: 100 },
+    data: {
+      label: "SQL Sync Logger",
+      type: "database",
+      description: "Asynchronous SQL transactional database write step.",
+      connections: 2,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(245, 158, 11, 0.15)",
+      border: "1px solid rgba(245, 158, 11, 0.4)",
+      borderRadius: "8px",
+      color: "#f59e0b",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+  {
+    id: "response",
+    position: { x: 770, y: 220 },
+    data: {
+      label: "HTTP Response API",
+      type: "core",
+      description: "Response encoder serializing responses back to clients.",
+      connections: 1,
+      risk: "Low",
+    },
+    style: {
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.4)",
+      borderRadius: "8px",
+      color: "#3b82f6",
+      fontWeight: "bold",
+      fontSize: "11px",
+      padding: "10px",
+      width: 140,
+    },
+  },
+];
+
+const DATA_EDGES: Edge[] = [
+  { id: "da-req-par", source: "request", target: "parser", animated: true, style: { stroke: "#3b82f6" } },
+  { id: "da-par-grd", source: "parser", target: "auth_guard", animated: true, style: { stroke: "#3b82f6" } },
+  { id: "da-grd-llm", source: "auth_guard", target: "llm_pipeline", animated: true, style: { stroke: "#ef4444" } },
+  { id: "da-llm-log", source: "llm_pipeline", target: "db_log", style: { stroke: "#424754" } },
+  { id: "da-llm-res", source: "llm_pipeline", target: "response", animated: true, style: { stroke: "#3b82f6" } },
 ];
 
 function ExplorerContent() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<ServiceNode>(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+  const [nodes, setNodes, onNodesChange] = useNodesState<ServiceNode>(DEPENDENCY_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(DEPENDENCY_EDGES);
   const [mode, setMode] = useState<"dependency" | "tree" | "data">("dependency");
   const [showInspector, setShowInspector] = useState(true);
+
+  // Sync state nodes when mode changes
+  useEffect(() => {
+    if (mode === "dependency") {
+      setNodes(DEPENDENCY_NODES);
+      setEdges(DEPENDENCY_EDGES);
+    } else if (mode === "tree") {
+      setNodes(TREE_NODES);
+      setEdges(TREE_EDGES);
+    } else if (mode === "data") {
+      setNodes(DATA_NODES);
+      setEdges(DATA_EDGES);
+    }
+  }, [mode, setNodes, setEdges]);
 
   // Sync selected border details on click
   const activeNode = useMemo(() => {
@@ -166,8 +633,8 @@ function ExplorerContent() {
           style: {
             ...n.style,
             border: n.id === node.id 
-              ? `2px solid ${n.id === "ingest" ? "#ef4444" : n.id === "authDB" || n.id === "analyticsDB" ? "#f59e0b" : "#3b82f6"}`
-              : `1px solid ${n.id === "ingest" ? "rgba(239, 68, 68, 0.4)" : n.id === "authDB" || n.id === "analyticsDB" ? "rgba(245, 158, 11, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
+              ? `2px solid ${n.id === "ingest" || n.id === "services" || n.id === "llm_pipeline" ? "#ef4444" : n.id === "authDB" || n.id === "analyticsDB" || n.id === "db_py" || n.id === "db_log" ? "#f59e0b" : "#3b82f6"}`
+              : `1px solid ${n.id === "ingest" || n.id === "services" || n.id === "llm_pipeline" ? "rgba(239, 68, 68, 0.4)" : n.id === "authDB" || n.id === "analyticsDB" || n.id === "db_py" || n.id === "db_log" ? "rgba(245, 158, 11, 0.4)" : "rgba(59, 130, 246, 0.4)"}`,
           },
         }))
       );
@@ -192,7 +659,7 @@ function ExplorerContent() {
 
         {/* Mode controls Panel */}
         <Panel position="top-right">
-          <div className="flex bg-surface-container-highest border border-outline-variant/60 rounded-lg p-1 select-none">
+          <div className="flex bg-surface-container-highest border border-outline-variant/60 rounded-lg p-1 select-none animate-fade-in">
             <button
               onClick={() => setMode("dependency")}
               className={cn(
