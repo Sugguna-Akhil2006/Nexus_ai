@@ -48,8 +48,11 @@ export default function ActivityPanel() {
 
   useEffect(() => {
     if (!activeWorkspace) return;
-    fetch(`/product/workspace/${activeWorkspace.workspace_id}/dashboard`)
-      .then((res) => res.json())
+    fetch(`/workspace/${activeWorkspace.workspace_id}/dashboard`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         if (data.success && data.data && data.data.timeline) {
           const list = data.data.timeline.map((act: any) => ({
@@ -66,7 +69,9 @@ export default function ActivityPanel() {
           }
         }
       })
-      .catch((err) => console.error("Error loading dashboard activities", err));
+      .catch((err) => {
+        console.warn("Failed to load live workspace activity logs, using static mock simulation data.", err);
+      });
   }, [activeWorkspace]);
 
   return (

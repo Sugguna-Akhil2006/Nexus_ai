@@ -30,7 +30,12 @@ class WorkspaceMemory:
                 return
             self.db = DBStorage()
             self.storage_dir = storage_dir
-            os.makedirs(self.storage_dir, exist_ok=True)
+            try:
+                os.makedirs(self.storage_dir, exist_ok=True)
+            except (PermissionError, OSError):
+                # Dynamic fallback for local system integration compatibility
+                self.storage_dir = os.path.expanduser("~/.gemini/antigravity-ide")
+                os.makedirs(self.storage_dir, exist_ok=True)
             self.persist_path = os.path.join(self.storage_dir, "document_workspace_memory.json")
             self._memory_lock = threading.RLock()
             self._local_store: Dict[str, Any] = {

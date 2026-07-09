@@ -78,7 +78,7 @@ export default function InviteModal({ onClose, onInvite }: InviteModalProps) {
             </label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as any)}
+              onChange={(e) => setRole(e.target.value as typeof role)}
               className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 text-on-surface focus:outline-none focus:border-primary-container transition-all cursor-pointer"
             >
               <option value="Admin">Admin (Full permissions)</option>
