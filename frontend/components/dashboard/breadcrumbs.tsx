@@ -14,7 +14,7 @@ const ROUTE_LABELS: Record<string, string> = {
   marketplace: "Marketplace",
   analyzer: "Resume Analyzer",
   analytics: "Analytics",
-  repository: "Repository Overview",
+  repository: "GitHub Analyzer",
   admin: "Admin Panel",
   onboarding: "Onboarding",
   settings: "Settings",

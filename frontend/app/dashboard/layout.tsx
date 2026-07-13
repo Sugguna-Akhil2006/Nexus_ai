@@ -5,12 +5,17 @@ import DashboardNavbar from "@/components/dashboard/navbar";
 import { NewProjectProvider } from "@/providers/new-project-provider";
 import NewProjectModal from "@/components/dashboard/new-project-modal";
 import AuthGuard from "@/components/auth/auth-guard";
+import PageTransition from "@/components/common/page-transition";
+import { useSidebar } from "@/providers/sidebar-provider";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { isCollapsed } = useSidebar();
+
   return (
     <AuthGuard>
       <NewProjectProvider>
@@ -24,8 +29,13 @@ export default function DashboardLayout({
             <DashboardNavbar />
 
             {/* Content Viewport Offset by Sidebar on large screens */}
-            <main className="flex-1 min-h-[calc(100vh-64px)] lg:pl-64 transition-all relative">
-              {children}
+            <main className={cn(
+              "flex-1 min-h-[calc(100vh-64px)] transition-all duration-300 relative",
+              isCollapsed ? "lg:pl-20" : "lg:pl-64"
+            )}>
+              <PageTransition>
+                {children}
+              </PageTransition>
             </main>
           </div>
 
@@ -36,4 +46,6 @@ export default function DashboardLayout({
     </AuthGuard>
   );
 }
+
+
 

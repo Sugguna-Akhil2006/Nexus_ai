@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ReactNode, useState } from "react";
 import { AuthProvider } from "@/providers/auth-provider";
 import { WorkspaceProvider } from "@/providers/workspace-provider";
+import { SidebarProvider } from "@/providers/sidebar-provider";
 
 export default function Providers({
     children,
@@ -30,13 +31,15 @@ export default function Providers({
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
                     <WorkspaceProvider>
-                        <TooltipProvider>
-                            {children}
-                            <Toaster richColors position="top-right" />
-                        </TooltipProvider>
+                        <SidebarProvider>
+                            <TooltipProvider>
+                                {children}
+                                <Toaster richColors position="top-right" />
+                            </TooltipProvider>
+                        </SidebarProvider>
                     </WorkspaceProvider>
                 </AuthProvider>
             </QueryClientProvider>
         </ThemeProvider>
     );
-}
+}

@@ -61,7 +61,7 @@ export default function ResumeUpload({
   };
 
   return (
-    <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5 select-none shadow-sm h-full flex flex-col justify-between">
+    <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5 select-none shadow-sm flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-sm md:text-base font-bold text-on-surface uppercase tracking-wider">

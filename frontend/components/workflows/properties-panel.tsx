@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Trash2 } from "lucide-react";
+import { Copy, Check, Trash2, Play, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -16,6 +16,8 @@ interface SelectedNodeInfo {
   autoRetry?: boolean;
   logPayloads?: boolean;
   schema?: string;
+  dbQuery?: string;
+  scriptCode?: string;
 }
 
 interface PropertiesPanelProps {
@@ -36,7 +38,13 @@ export default function PropertiesPanel({
   const [autoRetry, setAutoRetry] = useState(true);
   const [logPayloads, setLogPayloads] = useState(false);
   const [schema, setSchema] = useState("");
+  const [dbQuery, setDbQuery] = useState("");
+  const [scriptCode, setScriptCode] = useState("");
+  
+  // Validation / Testing states
   const [copied, setCopied] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   // Sync buffer states when selected node changes
   useEffect(() => {
@@ -47,6 +55,9 @@ export default function PropertiesPanel({
       setAutoRetry(selectedNode.autoRetry !== false);
       setLogPayloads(!!selectedNode.logPayloads);
       setSchema(selectedNode.schema || '{\n  "type": "object",\n  "required": ["userId"],\n  "properties": {\n    "userId": { "type": "string" }\n  }\n}');
+      setDbQuery(selectedNode.dbQuery || "SELECT * FROM users LIMIT 10;");
+      setScriptCode(selectedNode.scriptCode || "def transform(payload):\n    # Transform input payload maps\n    payload['transformed'] = True\n    return payload");
+      setJsonError(null);
     }
   }, [selectedNode]);
 
@@ -65,12 +76,38 @@ export default function PropertiesPanel({
       await navigator.clipboard.writeText(endpoint);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast.success("Endpoint URL copied");
     } catch (err) {
       console.error(err);
     }
   };
 
+  const validateJson = (val: string): boolean => {
+    if (!val.trim()) {
+      setJsonError(null);
+      return true;
+    }
+    try {
+      JSON.parse(val);
+      setJsonError(null);
+      return true;
+    } catch (e: any) {
+      setJsonError(e.message || "Invalid JSON syntax");
+      return false;
+    }
+  };
+
+  const handleSchemaChange = (val: string) => {
+    setSchema(val);
+    validateJson(val);
+  };
+
   const handleSaveChanges = () => {
+    if (selectedNode.type === "webhookNode" && !validateJson(schema)) {
+      toast.error("Cannot save: Invalid JSON validation schema.");
+      return;
+    }
+
     onUpdate(selectedNode.id, {
       label: name,
       endpoint,
@@ -78,8 +115,36 @@ export default function PropertiesPanel({
       autoRetry,
       logPayloads,
       schema,
+      dbQuery,
+      scriptCode,
     });
     toast.success("Node properties successfully saved!");
+  };
+
+  const handleTestNode = () => {
+    setIsTesting(true);
+    toast.promise(
+      new Promise((resolve, reject) => {
+        setTimeout(() => {
+          if (selectedNode.type === "webhookNode" && !validateJson(schema)) {
+            reject(new Error("Schema validation failure"));
+          } else {
+            resolve({ ok: true });
+          }
+        }, 1200);
+      }),
+      {
+        loading: `Running test simulation for "${name}"...`,
+        success: () => {
+          setIsTesting(false);
+          return `Test Successful! Node response: 200 OK.`;
+        },
+        error: (err) => {
+          setIsTesting(false);
+          return `Test Failed: ${err.message}`;
+        }
+      }
+    );
   };
 
   const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: () => void }) => (
@@ -100,13 +165,27 @@ export default function PropertiesPanel({
   return (
     <div className="w-[320px] bg-surface border-l border-outline-variant z-30 flex flex-col select-none shrink-0 h-full">
       {/* Header */}
-      <div className="p-6 border-b border-outline-variant shrink-0">
-        <h2 className="text-lg md:text-xl font-bold tracking-tight text-on-surface mb-1">
-          Properties
-        </h2>
-        <p className="text-xs text-on-surface-variant font-medium">
-          Selected: <span className="text-primary font-bold">{selectedNode.label}</span>
-        </p>
+      <div className="p-6 border-b border-outline-variant shrink-0 flex justify-between items-start">
+        <div className="min-w-0">
+          <h2 className="text-lg md:text-xl font-bold tracking-tight text-on-surface mb-1">
+            Properties
+          </h2>
+          <p className="text-xs text-on-surface-variant font-medium">
+            Selected: <span className="text-primary font-bold">{name}</span>
+          </p>
+        </div>
+        
+        {/* Test Node Button */}
+        <Button
+          variant="outline"
+          size="xs"
+          disabled={isTesting}
+          onClick={handleTestNode}
+          className="flex items-center gap-1 hover:text-primary hover:border-primary text-[10px] cursor-pointer"
+        >
+          <Play className="size-3 text-primary fill-primary" />
+          Test
+        </Button>
       </div>
 
       {/* Scrollable Form */}
@@ -124,7 +203,7 @@ export default function PropertiesPanel({
           />
         </div>
 
-        {/* Conditional inputs depending on Node Type */}
+        {/* Conditional inputs: Webhook Node */}
         {selectedNode.type === "webhookNode" && (
           <>
             {/* Endpoint */}
@@ -165,7 +244,66 @@ export default function PropertiesPanel({
                 <option value="OAuth 2.0">OAuth 2.0</option>
               </select>
             </div>
+
+            {/* JSON Validation Schema */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">
+                  Validation Schema (JSON)
+                </label>
+                {jsonError && (
+                  <span className="text-[9px] text-red-400 font-bold flex items-center gap-0.5">
+                    <AlertCircle className="size-2.5" />
+                    Invalid JSON
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={schema}
+                onChange={(e) => handleSchemaChange(e.target.value)}
+                spellCheck={false}
+                className={cn(
+                  "w-full h-36 bg-surface-container border rounded-xl p-3 font-mono text-[11px] leading-relaxed focus:outline-none focus:ring-1 outline-none custom-scrollbar resize-none",
+                  jsonError ? "border-red-500/50 focus:border-red-500 focus:ring-red-500 text-red-300" : "border-outline-variant focus:border-primary focus:ring-primary text-primary-fixed-dim"
+                )}
+              />
+              {jsonError && (
+                <p className="text-[10px] text-red-400/80 leading-normal pl-0.5">
+                  {jsonError}
+                </p>
+              )}
+            </div>
           </>
+        )}
+
+        {/* Conditional inputs: Script Node */}
+        {selectedNode.type === "scriptNode" && (
+          <div className="space-y-2">
+            <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">
+              Script Execution Code
+            </label>
+            <textarea
+              value={scriptCode}
+              onChange={(e) => setScriptCode(e.target.value)}
+              spellCheck={false}
+              className="w-full h-48 bg-surface-container border border-outline-variant rounded-xl p-3 font-mono text-[11px] leading-relaxed text-primary-fixed-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary outline-none custom-scrollbar resize-none"
+            />
+          </div>
+        )}
+
+        {/* Conditional inputs: Database Node */}
+        {selectedNode.type === "dbNode" && (
+          <div className="space-y-2">
+            <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">
+              SQL Database Query
+            </label>
+            <textarea
+              value={dbQuery}
+              onChange={(e) => setDbQuery(e.target.value)}
+              spellCheck={false}
+              className="w-full h-32 bg-surface-container border border-outline-variant rounded-xl p-3 font-mono text-[11px] leading-relaxed text-primary-fixed-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary outline-none custom-scrollbar resize-none"
+            />
+          </div>
         )}
 
         {/* Retry/Log Toggles */}
@@ -178,19 +316,6 @@ export default function PropertiesPanel({
             <span className="text-xs font-semibold text-on-surface">Log payloads</span>
             <Toggle enabled={logPayloads} onChange={() => setLogPayloads(!logPayloads)} />
           </div>
-        </div>
-
-        {/* JSON Validation Schema */}
-        <div className="space-y-2">
-          <label className="text-[10px] text-on-surface-variant font-bold block uppercase tracking-wider pl-0.5">
-            Validation Schema (JSON)
-          </label>
-          <textarea
-            value={schema}
-            onChange={(e) => setSchema(e.target.value)}
-            spellCheck={false}
-            className="w-full h-36 bg-surface-container border border-outline-variant rounded-xl p-3 font-mono text-[11px] leading-relaxed text-primary-fixed-dim focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary outline-none custom-scrollbar resize-none"
-          />
         </div>
       </div>
 

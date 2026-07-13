@@ -40,7 +40,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const refreshWorkspaces = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/product/workspace");
+      const res = await fetch("/workspace");
       if (!res.ok) {
         // Fallback to old API path or mock
         const altRes = await fetch("/api/workspaces");
@@ -63,6 +63,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           }
           return;
         }
+        throw new Error(`Fetch failed with HTTP status: ${res.status}`);
       }
       const data = await res.json();
       if (data.success && data.data) {
@@ -76,7 +77,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.error("Failed to load workspaces", e);
+      console.error("Failed to load workspaces, using simulator fallback", e);
+      const fallback: Workspace[] = [
+        {
+          workspace_id: "ws-fallback",
+          name: "Local Offline Workspace",
+          owner_id: "admin",
+          status: "active",
+          is_pinned: true,
+          is_favorite: true,
+          settings: { industry: "Technology & SaaS", deployment: "private", description: "Default offline simulator workspace." },
+          metadata: {}
+        }
+      ];
+      setWorkspaces(fallback);
+      if (!activeWorkspace) {
+        setActiveWorkspace(fallback[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -94,7 +111,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const createWorkspace = async (name: string, settings?: WorkspaceSettings) => {
     try {
-      const res = await fetch("/product/workspace", {
+      const res = await fetch("/workspace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -119,7 +136,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const updateWorkspace = async (workspaceId: string, updates: Partial<Workspace>) => {
     try {
-      const res = await fetch(`/product/workspace/${workspaceId}`, {
+      const res = await fetch(`/workspace/${workspaceId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates)

@@ -25,16 +25,20 @@ const nextConfig: NextConfig = {
         destination: "http://localhost:8000/product/:path*",
       },
       {
+        source: "/workspace/:path*",
+        destination: "http://localhost:8000/workspace/:path*",
+      },
+      {
+        source: "/workspaces/:path*",
+        destination: "http://localhost:8000/workspaces/:path*",
+      },
+      {
         source: "/admin/:path*",
         destination: "http://localhost:8000/admin/:path*",
       },
       {
         source: "/github/:path*",
         destination: "http://localhost:8000/github/:path*",
-      },
-      {
-        source: "/workspaces/:path*",
-        destination: "http://localhost:8000/workspaces/:path*",
       },
       {
         source: "/workflows/:path*",

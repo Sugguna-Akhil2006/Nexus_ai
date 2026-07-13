@@ -9,9 +9,9 @@ import MembersTable, { Member } from "@/components/team/members-table";
 import InviteModal from "@/components/team/invite-modal";
 import InviteLinks from "@/components/team/invite-links";
 import { cn } from "@/lib/utils";
-import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import { toast } from "sonner";
 import EmptyState from "@/components/common/empty-state";
+import PageContainer from "@/components/common/page-container";
 
 // Mock Team Members Database
 const INITIAL_MEMBERS: Member[] = [
@@ -88,53 +88,43 @@ export default function TeamManagementPage() {
     toast.success("Exporting workspace team members list in CSV format. Your download will start shortly.");
   };
 
-  return (
-    <div className="space-y-8 select-none">
+  const toolbarActions = (
+    <>
+      <Button 
+        variant="ghost" 
+        size="xs" 
+        onClick={() => setIsEmpty(!isEmpty)} 
+        className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors bg-transparent border-none mr-2"
+      >
+        {isEmpty ? "● Show Team Members" : "○ Simulate Empty State"}
+      </Button>
+      <Button
+        variant="outline"
+        disabled={isEmpty}
+        onClick={handleExportList}
+        className="bg-surface-container-low border border-outline-variant hover:bg-surface-container hover:border-primary px-4 py-2.5 rounded-lg text-xs font-bold text-on-surface flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+      >
+        <Download className="size-3.5 shrink-0" />
+        Export List
+      </Button>
       
-      <DashboardBreadcrumbs />
+      <Button
+        onClick={() => setShowInviteModal(true)}
+        className="bg-primary text-primary-foreground hover:opacity-90 active:scale-98 px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer border-none shadow-md shadow-primary/10 flex items-center gap-1.5"
+      >
+        <UserPlus className="size-3.5 shrink-0" />
+        Invite Member
+      </Button>
+    </>
+  );
 
-      {/* Page Header Actions */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-outline-variant/30 pb-6 shrink-0 select-none">
-        <div>
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-on-surface">
-              Team Management
-            </h2>
-            <Button 
-              variant="ghost" 
-              size="xs" 
-              onClick={() => setIsEmpty(!isEmpty)} 
-              className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-            >
-              {isEmpty ? "● Show Team Members" : "○ Simulate Empty State"}
-            </Button>
-          </div>
-          <p className="text-xs md:text-sm text-on-surface-variant font-medium mt-1 leading-relaxed max-w-2xl">
-            Manage workspace permissions, invite collaborators, and define member roles.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            disabled={isEmpty}
-            onClick={handleExportList}
-            className="bg-surface-container-low border border-outline-variant hover:bg-surface-container hover:border-primary px-4 py-2.5 rounded-lg text-xs font-bold text-on-surface flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-          >
-            <Download className="size-3.5 shrink-0" />
-            Export List
-          </Button>
-          
-          <Button
-            onClick={() => setShowInviteModal(true)}
-            className="bg-primary text-primary-foreground hover:opacity-90 active:scale-98 px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer border-none shadow-md shadow-primary/10 flex items-center gap-1.5"
-          >
-            <UserPlus className="size-3.5 shrink-0" />
-            Invite Member
-          </Button>
-        </div>
-      </section>
-
+  return (
+    <PageContainer
+      title="Team Management"
+      description="Manage workspace permissions, invite collaborators, and define member roles."
+      icon={<Users className="size-8 text-primary shrink-0" />}
+      toolbar={toolbarActions}
+    >
       {isEmpty ? (
         <div className="py-12">
           <EmptyState
@@ -147,7 +137,7 @@ export default function TeamManagementPage() {
           />
         </div>
       ) : (
-        <>
+        <div className="space-y-8">
           {/* Stats Summary overview widget */}
           <TeamStats 
             totalMembers={members.length} 
@@ -155,88 +145,83 @@ export default function TeamManagementPage() {
             apiConsumption={82} 
           />
 
-          {/* Members Directory Grid */}
-          <div className="grid grid-cols-1 gap-8">
+          {/* Members Table */}
+          <MembersTable 
+            initialMembers={members} 
+            onMembersChange={setMembers} 
+          />
+
+          {/* Global Permissions & Invite links */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 shrink-0">
             
-            {/* Members Table */}
-            <MembersTable 
-              initialMembers={members} 
-              onMembersChange={setMembers} 
-            />
+            {/* Permissions switches column */}
+            <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
+              <h3 className="text-sm md:text-base font-bold text-on-surface uppercase tracking-wider border-b border-outline-variant/40 pb-2.5 select-none">
+                Global Permissions
+              </h3>
 
-        {/* Global Permissions & Invite links */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 shrink-0">
-          
-          {/* Permissions switches column */}
-          <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
-            <h3 className="text-sm md:text-base font-bold text-on-surface uppercase tracking-wider border-b border-outline-variant/40 pb-2.5 select-none">
-              Global Permissions
-            </h3>
-
-            <div className="space-y-4">
-              
-              {/* Toggle 1 */}
-              <div className="flex items-start justify-between gap-4 p-2 hover:bg-surface-container/20 rounded-xl transition-all">
-                <div className="max-w-[78%] text-xs md:text-sm select-text">
-                  <div className="font-bold text-on-surface leading-tight">
-                    Allow Member Invitations
-                  </div>
-                  <p className="text-[10px] md:text-xs text-on-surface-variant/80 font-medium leading-relaxed mt-1.5">
-                    Non-admin members can invite new users to the workspace.
-                  </p>
-                </div>
+              <div className="space-y-4">
                 
-                {/* Switch slider */}
-                <div
-                  onClick={() => setAllowInvitations(!allowInvitations)}
-                  className={cn(
-                    "w-10 h-5 rounded-full relative cursor-pointer flex items-center px-1 transition-all duration-200 select-none border border-outline-variant/30 shrink-0 mt-1",
-                    allowInvitations ? "bg-primary" : "bg-surface-container-highest"
-                  )}
-                >
-                  <div className={cn(
-                    "w-3.5 h-3.5 rounded-full shadow-sm transition-all duration-200",
-                    allowInvitations ? "bg-white ml-auto" : "bg-outline mr-auto"
-                  )} />
-                </div>
-              </div>
-
-              {/* Toggle 2 */}
-              <div className="flex items-start justify-between gap-4 p-2 hover:bg-surface-container/20 rounded-xl transition-all">
-                <div className="max-w-[78%] text-xs md:text-sm select-text">
-                  <div className="font-bold text-on-surface leading-tight">
-                    Public Project Discovery
+                {/* Toggle 1 */}
+                <div className="flex items-start justify-between gap-4 p-2 hover:bg-surface-container/20 rounded-xl transition-all">
+                  <div className="max-w-[78%] text-xs md:text-sm select-text">
+                    <div className="font-bold text-on-surface leading-tight">
+                      Allow Member Invitations
+                    </div>
+                    <p className="text-[10px] md:text-xs text-on-surface-variant/80 font-medium leading-relaxed mt-1.5">
+                      Non-admin members can invite new users to the workspace.
+                    </p>
                   </div>
-                  <p className="text-[10px] md:text-xs text-on-surface-variant/80 font-medium leading-relaxed mt-1.5">
-                    Enable team members to browse and join open projects.
-                  </p>
+                  
+                  {/* Switch slider */}
+                  <div
+                    onClick={() => setAllowInvitations(!allowInvitations)}
+                    className={cn(
+                      "w-10 h-5 rounded-full relative cursor-pointer flex items-center px-1 transition-all duration-200 select-none border border-outline-variant/30 shrink-0 mt-1",
+                      allowInvitations ? "bg-primary" : "bg-surface-container-highest"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-3.5 h-3.5 rounded-full shadow-sm transition-all duration-200",
+                      allowInvitations ? "bg-white ml-auto" : "bg-outline mr-auto"
+                    )} />
+                  </div>
                 </div>
-                
-                {/* Switch slider */}
-                <div
-                  onClick={() => setPublicDiscovery(!publicDiscovery)}
-                  className={cn(
-                    "w-10 h-5 rounded-full relative cursor-pointer flex items-center px-1 transition-all duration-200 select-none border border-outline-variant/30 shrink-0 mt-1",
-                    publicDiscovery ? "bg-primary" : "bg-surface-container-highest"
-                  )}
-                >
-                  <div className={cn(
-                    "w-3.5 h-3.5 rounded-full shadow-sm transition-all duration-200",
-                    publicDiscovery ? "bg-white ml-auto" : "bg-outline mr-auto"
-                  )} />
-                </div>
-              </div>
 
+                {/* Toggle 2 */}
+                <div className="flex items-start justify-between gap-4 p-2 hover:bg-surface-container/20 rounded-xl transition-all">
+                  <div className="max-w-[78%] text-xs md:text-sm select-text">
+                    <div className="font-bold text-on-surface leading-tight">
+                      Public Project Discovery
+                    </div>
+                    <p className="text-[10px] md:text-xs text-on-surface-variant/80 font-medium leading-relaxed mt-1.5">
+                      Enable team members to browse and join open projects.
+                    </p>
+                  </div>
+                  
+                  {/* Switch slider */}
+                  <div
+                    onClick={() => setPublicDiscovery(!publicDiscovery)}
+                    className={cn(
+                      "w-10 h-5 rounded-full relative cursor-pointer flex items-center px-1 transition-all duration-200 select-none border border-outline-variant/30 shrink-0 mt-1",
+                      publicDiscovery ? "bg-primary" : "bg-surface-container-highest"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-3.5 h-3.5 rounded-full shadow-sm transition-all duration-200",
+                      publicDiscovery ? "bg-white ml-auto" : "bg-outline mr-auto"
+                    )} />
+                  </div>
+                </div>
+
+              </div>
             </div>
+
+            {/* Invitation links card */}
+            <InviteLinks />
+
           </div>
-
-          {/* Invitation links card */}
-          <InviteLinks />
-
         </div>
-
-      </div>
-        </>
       )}
 
       {/* Invite Member modal popups */}
@@ -246,7 +231,6 @@ export default function TeamManagementPage() {
           onInvite={handleInviteSubmit} 
         />
       )}
-
-    </div>
+    </PageContainer>
   );
 }

@@ -45,6 +45,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import DashboardSidebar from "./sidebar";
 import { useAuth } from "@/providers/auth-provider";
+import { useSidebar } from "@/providers/sidebar-provider";
+
 
 // Search Index Mock Data for command bar
 const SEARCH_INDEX = [
@@ -55,6 +57,7 @@ const SEARCH_INDEX = [
   { category: "Pages", name: "Workflows Canvas", href: "/dashboard/workflows" },
   { category: "Pages", name: "Integrations Marketplace", href: "/dashboard/marketplace" },
   { category: "Pages", name: "Resume Analyzer", href: "/dashboard/analyzer" },
+  { category: "Pages", name: "GitHub Analyzer", href: "/dashboard/analytics/repository" },
   { category: "Pages", name: "Advanced Analytics", href: "/dashboard/analytics" },
   { category: "Pages", name: "Admin Dashboard Panel", href: "/dashboard/admin" },
   { category: "Pages", name: "Workspace Settings", href: "/dashboard/settings" },
@@ -84,11 +87,15 @@ export default function DashboardNavbar() {
     setMounted(true);
   }, []);
 
+  const { isCollapsed } = useSidebar();
+
   // Notifications State
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Inference load spiked above 85% in nexus-v4-prod.", time: "2m ago", unread: true },
     { id: 2, text: "Data Processing Pipeline build completed successfully.", time: "15m ago", unread: true },
     { id: 3, text: "New agent 'Customer Support Bot' registered by Sarah Jenkins.", time: "1h ago", unread: false },
+    { id: 4, text: "Billing quota exceeded 80% limit for active workspace.", time: "3h ago", unread: false },
+    { id: 5, text: "Security anomaly: Unrecognized token access from IP 198.51.100.42.", time: "1d ago", unread: false },
   ]);
 
   // Keyboard Shortcuts listener
@@ -153,7 +160,10 @@ export default function DashboardNavbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-surface/85 backdrop-blur-md border-b border-outline-variant flex justify-between items-center h-16 px-4 md:px-8 lg:pl-72 transition-all">
+      <header className={cn(
+        "sticky top-0 z-40 w-full bg-surface/85 backdrop-blur-md border-b border-outline-variant flex justify-between items-center h-16 px-4 md:px-8 transition-all duration-300",
+        isCollapsed ? "lg:pl-28" : "lg:pl-72"
+      )}>
         {/* Search Bar / Menu button */}
         <div className="flex items-center gap-3 flex-1 max-w-xl relative">
           {/* Mobile menu trigger */}

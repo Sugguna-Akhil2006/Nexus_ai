@@ -10,9 +10,9 @@ import PricingPlans from "@/components/billing/pricing-plans";
 import PaymentHistoryTable, { InvoiceItem } from "@/components/billing/payment-history-table";
 import PaymentMethods, { CardDetails } from "@/components/billing/payment-methods";
 import BillingAddress, { AddressDetails } from "@/components/billing/billing-address";
-import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import { toast } from "sonner";
 import EmptyState from "@/components/common/empty-state";
+import PageContainer from "@/components/common/page-container";
 
 // Complete pricing plans definitions database
 const MOCK_PLANS: PlanDetails[] = [
@@ -103,52 +103,42 @@ export default function BillingSettingsPage() {
     toast.info("Opening secure payment methods portal. Loading default credentials.");
   };
 
-  return (
-    <div className="space-y-8 select-none relative">
+  const toolbarActions = (
+    <>
+      <Button 
+        variant="ghost" 
+        size="xs" 
+        onClick={() => setIsEmpty(!isEmpty)} 
+        className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors bg-transparent border-none mr-2"
+      >
+        {isEmpty ? "● Show Billing Profile" : "○ Simulate Empty State"}
+      </Button>
+      <Button
+        variant="outline"
+        disabled={isEmpty}
+        onClick={handleManagePayment}
+        className="bg-surface-container-low border border-outline-variant hover:bg-surface-container hover:border-primary px-4 py-2.5 rounded-lg text-xs font-bold text-on-surface cursor-pointer shadow-sm disabled:opacity-50"
+      >
+        Manage Payment Method
+      </Button>
       
-      <DashboardBreadcrumbs />
+      <Button
+        onClick={handleUpgradeHeader}
+        className="bg-primary text-primary-foreground hover:opacity-90 active:scale-98 px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer border-none shadow-md shadow-primary/10 flex items-center gap-1.5"
+      >
+        <Sparkles className="size-3.5 shrink-0" />
+        Upgrade Plan
+      </Button>
+    </>
+  );
 
-      {/* Header Info */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-outline-variant/30 pb-6 shrink-0 select-none">
-        <div>
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-on-surface">
-              Billing &amp; Subscription
-            </h2>
-            <Button 
-              variant="ghost" 
-              size="xs" 
-              onClick={() => setIsEmpty(!isEmpty)} 
-              className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-            >
-              {isEmpty ? "● Show Billing Profile" : "○ Simulate Empty State"}
-            </Button>
-          </div>
-          <p className="text-xs md:text-sm text-on-surface-variant font-medium mt-1 leading-relaxed max-w-2xl">
-            Manage your organizational plan, track real-time usage across API nodes, and review historical invoices.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            disabled={isEmpty}
-            onClick={handleManagePayment}
-            className="bg-surface-container-low border border-outline-variant hover:bg-surface-container hover:border-primary px-4 py-2.5 rounded-lg text-xs font-bold text-on-surface cursor-pointer shadow-sm disabled:opacity-50"
-          >
-            Manage Payment Method
-          </Button>
-          
-          <Button
-            onClick={handleUpgradeHeader}
-            className="bg-primary text-primary-foreground hover:opacity-90 active:scale-98 px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer border-none shadow-md shadow-primary/10 flex items-center gap-1.5"
-          >
-            <Sparkles className="size-3.5 shrink-0" />
-            Upgrade Plan
-          </Button>
-        </div>
-      </section>
-
+  return (
+    <PageContainer
+      title="Billing & Subscription"
+      description="Manage your organizational plan, track real-time usage across API nodes, and review historical invoices."
+      icon={<CreditCard className="size-8 text-primary shrink-0" />}
+      toolbar={toolbarActions}
+    >
       {isEmpty ? (
         <div className="py-12">
           <EmptyState
@@ -161,7 +151,7 @@ export default function BillingSettingsPage() {
           />
         </div>
       ) : (
-        <>
+        <div className="space-y-8">
           {/* Bento grid layout for Current Plan and metrics */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
             
@@ -212,9 +202,8 @@ export default function BillingSettingsPage() {
             />
 
           </div>
-        </>
+        </div>
       )}
-
-    </div>
+    </PageContainer>
   );
 }

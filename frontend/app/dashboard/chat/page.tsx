@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Bot, ChevronRight, Clock, Cpu, History, MessageSquare, RefreshCw, TerminalSquare, Wrench } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Activity, Bot, ChevronRight, Clock, Cpu, History, MessageSquare, RefreshCw, TerminalSquare, Wrench, Download } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import ConversationList, { Conversation } from "@/components/chat/conversation-list";
@@ -12,6 +12,7 @@ import { AttachedFile } from "@/components/chat/file-attachments";
 import EmptyState from "@/components/common/empty-state";
 import { useWorkspace } from "@/providers/workspace-provider";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const SUGGESTED_QUESTIONS = [
   "Analyze this workspace context",
@@ -77,6 +78,10 @@ const parseMaybeJson = (value: unknown) => {
   }
 };
 
+function getTimestamp() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function ChatPage() {
   const { activeWorkspace } = useWorkspace();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -129,40 +134,35 @@ export default function ChatPage() {
     const mapped: Conversation[] = ((data.conversations || []) as ConversationRow[]).map((conversation) => ({
       id: conversation.conversation_id,
       title: conversation.title,
-      updatedAt: conversation.created_at ? new Date(conversation.created_at).toLocaleDateString() : "Just now",
-      category: "Today",
+      updatedAt: "Active",
+      category: "Older",
     }));
     setConversations(mapped);
-    if (mapped.length > 0 && !activeId) setActiveId(mapped[0].id);
-    if (mapped.length === 0) {
-      setActiveId("");
-      setMessages([]);
+    if (mapped.length > 0 && !activeId) {
+      setActiveId(mapped[0].id);
     }
   };
 
-  const fetchMessages = async (id: string) => {
-    if (!id) {
+  const fetchMessages = async (conversationId: string) => {
+    if (!conversationId) {
       setMessages([]);
       return;
     }
-    const res = await fetch(`/api/chat/history?session_id=${id}`);
+    const res = await fetch(`/api/chat/messages?conversation_id=${conversationId}`);
     if (!res.ok) return;
     const data = await res.json();
-    const mapped: Message[] = ((data.messages || []) as MessageRow[]).map((message) => {
-      const metadata = parseMaybeJson(message.execution_metadata) as ExecutionMetadata | undefined;
+    const mapped: Message[] = ((data.messages || []) as MessageRow[]).map((msg) => {
+      const metadata = parseMaybeJson(msg.execution_metadata) as ExecutionMetadata | undefined;
       return {
-        id: message.message_id,
-        sender: message.role === "user" ? "user" : "ai",
-        text: message.content,
-        agentName: metadata?.active_agent,
-        provider: metadata?.provider || message.provider,
-        latencyMs: typeof metadata?.response_time === "string" ? Number.parseFloat(metadata.response_time) * 1000 : undefined,
+        id: msg.message_id,
+        sender: msg.role === "user" ? "user" : "ai",
+        text: msg.content,
+        provider: msg.provider || metadata?.provider || undefined,
       };
     });
     setMessages(mapped);
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     fetchAgents();
   }, []);
@@ -174,16 +174,22 @@ export default function ChatPage() {
   useEffect(() => {
     fetchMessages(activeId);
   }, [activeId]);
-  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   const handleSelectConversation = (id: string) => {
+    if (socketRef.current) socketRef.current.close();
+    setIsTyping(false);
     setActiveId(id);
     setInputText("");
     setAttachedFiles([]);
   };
 
-  const handleDeleteConversation = (id: string, event: React.MouseEvent) => {
+  const handleDeleteConversation = async (id: string, event: React.MouseEvent) => {
     event.stopPropagation();
+    try {
+      await fetch(`/api/chat/session/${id}`, { method: "DELETE" });
+    } catch (e) {
+      console.error(e);
+    }
     const remaining = conversations.filter((conversation) => conversation.id !== id);
     setConversations(remaining);
     if (activeId === id) {
@@ -192,7 +198,23 @@ export default function ChatPage() {
     }
   };
 
+  const handleRename = (id: string, newTitle: string) => {
+    setConversations(conversations.map(c =>
+      c.id === id ? { ...c, title: newTitle } : c
+    ));
+    toast.success("Conversation renamed");
+  };
+
+  const handleTogglePin = (id: string) => {
+    setConversations(conversations.map(c =>
+      c.id === id ? { ...c, isPinned: !c.isPinned } : c
+    ));
+    const conv = conversations.find(c => c.id === id);
+    toast.success(conv?.isPinned ? "Conversation unpinned" : "Conversation pinned");
+  };
+
   const handleNewChat = () => {
+    if (socketRef.current) socketRef.current.close();
     setActiveId("");
     setMessages([]);
     setInputText("");
@@ -349,6 +371,25 @@ export default function ChatPage() {
     }
   };
 
+  const handleExportChat = () => {
+    const content = [
+      `# ${activeConversationTitle}`,
+      `Exported: ${new Date().toISOString()}`,
+      `Messages: ${messages.length}`,
+      "",
+      ...messages.map(m => `### ${m.sender === "ai" ? "Nexus AI" : "You"}\n${m.text}\n`)
+    ].join("\n");
+
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeConversationTitle.replace(/\s+/g, "_").toLowerCase()}_export.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Chat exported as Markdown");
+  };
+
   const activeConversationTitle = conversations.find((conversation) => conversation.id === activeId)?.title || "AI Chat";
   const pendingAgent = agents.find((agent) => agent.id === pendingAgentId);
 
@@ -361,6 +402,8 @@ export default function ChatPage() {
           onSelect={handleSelectConversation}
           onDelete={handleDeleteConversation}
           onNewChat={handleNewChat}
+          onRename={handleRename}
+          onTogglePin={handleTogglePin}
         />
       </div>
 
@@ -383,6 +426,8 @@ export default function ChatPage() {
                   onSelect={handleSelectConversation}
                   onDelete={handleDeleteConversation}
                   onNewChat={handleNewChat}
+                  onRename={handleRename}
+                  onTogglePin={handleTogglePin}
                 />
               </SheetContent>
             </Sheet>
@@ -391,9 +436,22 @@ export default function ChatPage() {
             <span className="text-primary font-semibold truncate max-w-[160px] sm:max-w-xs">{activeConversationTitle}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-widest font-mono">
+          <div className="flex items-center gap-3">
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleExportChat}
+                className="text-[10px] font-semibold text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors flex items-center gap-1"
+              >
+                <Download className="size-3" />
+                Export
+              </Button>
+            )}
             <span className={cn("w-2 h-2 rounded-full", selectedAgent ? "bg-primary animate-pulse" : "bg-red-500")} />
-            <span>{selectedAgent ? selectedAgent.name : "No Agent"}</span>
+            <span className="text-[10px] font-bold text-on-surface-variant/80 uppercase tracking-widest font-mono">
+              {selectedAgent ? selectedAgent.name : "No Agent"}
+            </span>
           </div>
         </div>
 
