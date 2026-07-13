@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Bot, User, FileText, Image as ImageIcon, File } from "lucide-react";
+import { Bot, FileText, Image as ImageIcon, File } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CodeBlock from "./code-block";
 import { AttachedFile } from "./file-attachments";
@@ -10,6 +10,9 @@ export interface Message {
   id: string;
   sender: "user" | "ai";
   text: string;
+  agentName?: string;
+  provider?: string;
+  latencyMs?: number;
   codeBlock?: {
     filename: string;
     code: string;
@@ -66,8 +69,13 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                     <Bot className="size-4" />
                   </div>
                   <span className="text-[10px] font-bold text-primary uppercase tracking-wider font-sans mt-0.5">
-                    Nexus AI
+                    {message.agentName || "Nexus AI"}
                   </span>
+                  {message.provider && (
+                    <span className="text-[10px] text-on-surface-variant font-mono">
+                      {message.provider}{message.latencyMs ? ` / ${message.latencyMs}ms` : ""}
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-sans mt-0.5">

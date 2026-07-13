@@ -4,6 +4,7 @@ import { useState, DragEvent } from "react";
 import { UploadCloud, FileText, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useWorkspace } from "@/providers/workspace-provider";
 
 interface UploadedFile {
   name: string;
@@ -12,9 +13,16 @@ interface UploadedFile {
   status: "uploading" | "completed" | "failed";
 }
 
-export default function DragDropUpload() {
+interface DragDropUploadProps {
+  onUploadSuccess?: () => void;
+}
+
+export default function DragDropUpload({ onUploadSuccess }: DragDropUploadProps) {
+  const { activeWorkspace } = useWorkspace();
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadedFile[]>([]);
+
+  const workspaceId = activeWorkspace?.workspace_id || "default-ws";
 
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -26,37 +34,50 @@ export default function DragDropUpload() {
     }
   };
 
+  const uploadFileToServer = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setUploadingFiles((prev) => [
+      ...prev,
+      { name: file.name, size: file.size, progress: 20, status: "uploading" }
+    ]);
+
+    try {
+      const res = await fetch(`/api/documents/upload?workspace_id=${workspaceId}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error();
+      }
+
+      setUploadingFiles((prev) =>
+        prev.map((uf) =>
+          uf.name === file.name
+            ? { ...uf, progress: 100, status: "completed" }
+            : uf
+        )
+      );
+      toast.success(`File uploaded successfully: ${file.name}`);
+      onUploadSuccess?.();
+    } catch (e) {
+      setUploadingFiles((prev) =>
+        prev.map((uf) =>
+          uf.name === file.name
+            ? { ...uf, progress: 100, status: "failed" }
+            : uf
+        )
+      );
+      toast.error(`Failed to upload file: ${file.name}`);
+    }
+  };
+
   const processFiles = (files: FileList) => {
-    const list = Array.from(files).map((f) => {
-      const item: UploadedFile = {
-        name: f.name,
-        size: f.size,
-        progress: 0,
-        status: "uploading"
-      };
-
-      // Simulate file upload progress
-      const interval = setInterval(() => {
-        setUploadingFiles((prev) =>
-          prev.map((uf) => {
-            if (uf.name === f.name) {
-              const nextProgress = uf.progress + 20;
-              if (nextProgress >= 100) {
-                clearInterval(interval);
-                toast.success(`File uploaded successfully: ${f.name}`);
-                return { ...uf, progress: 100, status: "completed" };
-              }
-              return { ...uf, progress: nextProgress };
-            }
-            return uf;
-          })
-        );
-      }, 300);
-
-      return item;
+    Array.from(files).forEach((file) => {
+      uploadFileToServer(file);
     });
-
-    setUploadingFiles((prev) => [...prev, ...list]);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {

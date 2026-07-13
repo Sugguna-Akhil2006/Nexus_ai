@@ -104,3 +104,49 @@ def get_registry_dashboard(
 ) -> Dict[str, Any]:
     dashboard = RegistryDashboard(reg)
     return dashboard.get_dashboard_data()
+
+
+from backend.studio.plugin_manager import PluginManager
+from pydantic import BaseModel
+
+class InstallPluginReq(BaseModel):
+    plugin_id: str
+    name: str
+    version: str
+    description: str
+
+@router.get("/plugins")
+def list_plugins(reg: CapabilityRegistry = Depends(get_registry)):
+    from dataclasses import asdict
+    pm = PluginManager(reg)
+    plugins = pm.list_plugins()
+    return {"plugins": [asdict(p) for p in plugins]}
+
+@router.post("/plugins/install")
+def install_plugin(req: InstallPluginReq, reg: CapabilityRegistry = Depends(get_registry)):
+    from backend.registry.registry_models import CapabilityMetadata
+    meta = CapabilityMetadata(
+        capability_id=req.plugin_id,
+        name=req.name,
+        type=CapabilityType.PLUGIN,
+        version=req.version,
+        description=req.description,
+        author="nexus",
+        tags=[],
+        dependencies=[]
+    )
+    pm = PluginManager(reg)
+    success = pm.install_plugin(meta)
+    return {"success": success}
+
+@router.post("/plugins/{plugin_id}/uninstall")
+def uninstall_plugin(plugin_id: str, reg: CapabilityRegistry = Depends(get_registry)):
+    pm = PluginManager(reg)
+    success = pm.remove_plugin(plugin_id)
+    return {"success": success}
+
+@router.post("/plugins/{plugin_id}/toggle")
+def toggle_plugin(plugin_id: str, enabled: bool, reg: CapabilityRegistry = Depends(get_registry)):
+    pm = PluginManager(reg)
+    success = pm.set_enabled_status(plugin_id, enabled)
+    return {"success": success}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Star, Play, CheckCircle2 } from "lucide-react";
+import { Play, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +12,7 @@ export interface AgentMarketplaceItem {
   price: string;
   description: string;
   rating: string;
-  tag: "Verified" | "Open Source" | "Trending";
+  tag: "Verified" | "Open Source" | "Trending" | "Installed";
   category: "analytics" | "code" | "creative" | "security";
   coverUrl: string;
   initials: string[];
@@ -43,16 +43,7 @@ export default function AgentCard({ item, onInstall }: AgentCardProps) {
     }
   };
 
-  const getTagStyle = (tag: string) => {
-    switch (tag) {
-      case "Verified":
-        return "text-primary border-primary/20 bg-surface/80";
-      case "Trending":
-        return "text-tertiary border-tertiary/20 bg-surface/80";
-      default: // Open Source
-        return "text-on-surface-variant border-outline-variant bg-surface/80";
-    }
-  };
+
 
   return (
     <div className="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden group hover:shadow-xl hover:shadow-black/20 hover:border-primary/35 transition-all duration-300 flex flex-col justify-between select-none shadow-sm">
@@ -68,20 +59,7 @@ export default function AgentCard({ item, onInstall }: AgentCardProps) {
           className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out brightness-90"
         />
 
-        {/* Floating tags */}
-        <div className="absolute top-3 left-3 flex gap-2">
-          <span className={cn("text-[9px] px-2 py-1 rounded font-bold uppercase tracking-wider border leading-none", getTagStyle(item.tag))}>
-            {item.tag}
-          </span>
-        </div>
 
-        {/* Floating rating details */}
-        <div className="absolute bottom-3 right-3">
-          <div className="bg-surface/80 backdrop-blur-md px-2.5 py-1 rounded text-xs font-semibold text-on-surface flex items-center gap-1 leading-none shadow-sm border border-outline-variant/30">
-            <Star className="size-3.5 text-tertiary fill-tertiary shrink-0" />
-            <span className="pt-0.5">{item.rating}</span>
-          </div>
-        </div>
       </div>
 
       {/* Info details */}
@@ -104,22 +82,7 @@ export default function AgentCard({ item, onInstall }: AgentCardProps) {
 
         {/* Bottom install section */}
         <div className="flex items-center justify-between border-t border-outline-variant/60 pt-4 mt-auto">
-          {/* Users Pile */}
-          <div className="flex -space-x-1.5 overflow-hidden">
-            {item.initials.map((init, idx) => (
-              <div
-                key={idx}
-                className="w-6 h-6 rounded-full bg-surface-container-highest border border-surface flex items-center justify-center text-[9px] font-bold text-on-surface-variant"
-              >
-                {init}
-              </div>
-            ))}
-            {item.plusCount && item.plusCount > 0 && (
-              <div className="w-6 h-6 rounded-full bg-surface-container-highest border border-surface flex items-center justify-center text-[9px] font-bold text-on-surface-variant">
-                +{item.plusCount}
-              </div>
-            )}
-          </div>
+          <div />
 
           {/* Action Trigger */}
           <Button

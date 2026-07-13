@@ -612,6 +612,8 @@ class ChatAgent(BaseAgent):
 
     def classify_intent(self, query: str, has_context: bool = False) -> str:
         """Classifies the query into one of the 6 workflow template IDs."""
+        if not has_context:
+            return "general_chat"
         query_lower = query.lower()
         if any(w in query_lower for w in ["resume", "cv", "portfolio", "hire", "recruiting", "recruit", "education", "experience", "skills", "projects", "job description", "candidate"]):
             return "resume_review"
@@ -621,9 +623,7 @@ class ChatAgent(BaseAgent):
             return "code_analysis"
         if any(w in query_lower for w in ["meeting", "minutes", "transcript", "notes", "summary of meeting", "attendees", "action items"]):
             return "meeting_summary"
-        if has_context:
-            return "document_qa"
-        return "general_chat"
+        return "document_qa"
 
     def validate_task(self, task: Task) -> None:
         super().validate_task(task)

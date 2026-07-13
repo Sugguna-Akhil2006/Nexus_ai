@@ -1,116 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Boxes, ShieldAlert, Cloud, Cpu, Database, Users } from "lucide-react";
 import DashboardHeader from "@/components/dashboard/header";
 import InferenceLoadsChart from "@/components/dashboard/chart";
 import ActivityPanel from "@/components/dashboard/activity-panel";
-import ProjectCard, { ProjectCardProps } from "@/components/dashboard/project-card";
+import ProjectCard from "@/components/dashboard/project-card";
 import MetricCard from "@/components/dashboard/metric-card";
 import { Button } from "@/components/ui/button";
 import { useNewProject } from "@/providers/new-project-provider";
 import EmptyState from "@/components/common/empty-state";
+import { useWorkspace } from "@/providers/workspace-provider";
 
-// Mock Active Projects Data
-const PROJECTS: (Omit<ProjectCardProps, "icon"> & { id: string; icon: any })[] = [
-  {
-    id: "proj-1",
-    title: "Data Processing Pipeline",
-    description: "Autonomous data processing and routing workflow canvas.",
-    status: "In Progress",
-    statusColorClass: "text-primary",
-    progress: 84,
-    progressBarColorClass: "bg-primary",
-    icon: Boxes,
-    iconBgClass: "bg-primary/10 border-primary/20",
-    members: [
-      { 
-        name: "Alex Chen", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAbr9guC61fiUJeD9Xl4Rj2K2COicq9oILTpOuLicDl0fZT-LW7zHHMa0DmF3nf0mx53QYwDf7QJAPBH0wLWmvTjyEs98DxiXtowyXhFnn8dwhIaaa_Ku72pQRHyMxSsk14lAq3sJwega8kIfJatmMGLgWHFdJ4fw6in1BJKEnusJgVr7mNLcBHbtix11PTjD4LIFc8F8WqkoQkssm3IWd7K4_euEesvkfi7mh7a4XNi_eTbGDkEtU6ZV4PaVM8gTjA2jXzgiSw7P0X" 
-      },
-      { 
-        name: "Sarah Jenkins", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuA3MoYSYYxljBKeD1LPVnMlh1GRqzGT-0TPiEk3dCPcouz2FfLQuitJSbZKDvMjXQOq6ixjnsbx3l6hsfJPOLv7ciaUzn_PmDfvXonTcwEVmgTmLR9l6WxXgtyheASMa1QK2InnI3L65Q-hJ3D98-0uWyJcz3Jd5WgFn4Liy-Z9p6RG5ax7_p1wL6lvGKnoPQYRIOcpzEJlr9oV5R0yjunh8FVal9HJ8OFI8OFcGupCvATsxR0l_A2pPwP8DZPp-1sIRLeuZiI65wJh" 
-      }
-    ],
-    extraMembers: 3,
-  },
-  {
-    id: "proj-2",
-    title: "Vanguard Guardrail",
-    description: "Real-time prompt injection prevention and LLM safety layer.",
-    status: "Staging",
-    statusColorClass: "text-secondary",
-    progress: 42,
-    progressBarColorClass: "bg-secondary",
-    icon: ShieldAlert,
-    iconBgClass: "bg-secondary/15 border-secondary/20",
-    members: [
-      { 
-        name: "Marcus Aurelius", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCN4AjYH9VxqqekSZR46EWARGDW7GMXN34fjzzmPJY-B4sW93NZW3_bKE8rk8GH6Z7bRoipIGJbgqN0vtzn7xAgoHQTc6JtG3CQCfDiA9neEXuu28xGxc7wL6j9Kf9h9i4MR4U2WvxAjh9HSw6td40xcVWZ9XzdCZ2rtAJ9ktBeZegNm95Es4QadiRmjLDzYdu7-cEyX3PmeaeSC_AnC0mw4FYBiPbd4et2dqdo-rGQFmI6NeZ8QujR__Aq0aj-E6wcGGvHPbx8gVEE" 
-      }
-    ],
-    extraMembers: 1,
-  },
-  {
-    id: "proj-3",
-    title: "Core-Sync 2.0",
-    description: "Unified vector embedding pipeline for global agent clusters.",
-    status: "Active",
-    statusColorClass: "text-green-400",
-    progress: 96,
-    progressBarColorClass: "bg-primary",
-    icon: Cloud,
-    iconBgClass: "bg-primary-container/20 border-primary-container/30",
-    members: [
-      { 
-        name: "Dina Prince", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDvD0kvr7FE7QIJRQL9HZs04p8yaOCCyuEkJznFj0H2CiDuOh3ohnA9hKPU5n9MyCu5fVwuIsnK-pP7LCR-PvBdz3mAE2Qrmm1bX6Lwps43Uv4sL1JMbXRAf-DvOTTEiFmWPC0izk3h7-lQdyZ4GXU-s5YnVt-Uz1-AGJon-RJujjlCeVAEZvrDaqW1Q_x7poDkUXefQ_JgndojkCTwKAXQRIbCicPkaSffJNHeNnGYL0iilkCifS9fCc1VWcCXWtGa6fht0BuS6qKJ" 
-      },
-      { 
-        name: "John Stewart", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuADTWQkJyCrcBfNzLgWua8xU-wSLoS4mBRmPJAOkXXNiI6psySgLavV1ddMecybd-7q9elRbTlwmWxlKjxr3FHHT5xYSlyrbidFLE16_NS6iaqQrVs70eGO2g95M6_PkS2khQZXIMjMIH70Oaj8Q08rqOzH0F8RmXifQLnBBLi0KiNCdfvzLcTaug8Nx4WKOWgxJmqKpcqTiD2huFl4At0iXjGJeXgJ8sCjRqtnJOVd3Ppku0_QYohGZpctB_esvM7LgXuueGefuPN0" 
-      },
-      { 
-        name: "Wally West", 
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAEnZ2U0S7-nMI81nD33xTVKwg57UfvPrDUZUI5BNnA7MfYHooLqhTbejOGaSkmiGzN7wb9mV2lEhKtJ-48IPOno1WR8NuS5PZV7I2R226SZaCsHjXXS5vz9tbSBvyid-6MkDeFAE0kYYvXzSjNcWQf3DFGDqGz4ADbfSiaGDP3OsNkh0EmvpOqwVCf9v5BPx_MxrRGU1ncbF7JiovX7TgfKygx0a6jFTk5svBGlvAeg8ISiq3YR_i4uzjHEZVIsMyyHMHql5ESvtr5" 
-      }
-    ],
-    extraMembers: 8,
-  }
-];
-
-// Mock Performance Metrics Data
-const METRICS = [
-  {
-    title: "Compute Usage",
-    value: "84.2 TFlops",
-    icon: Cpu,
-  },
-  {
-    title: "Storage Index",
-    value: "1.2 PB",
-    icon: Database,
-  },
-  {
-    title: "Active Agents",
-    value: (
-      <span className="flex items-baseline">
-        12 
-        <span className="text-green-400 text-xs font-normal ml-1.5 lowercase">
-          online
-        </span>
-      </span>
-    ),
-    icon: Users,
-  }
-];
+interface ProjectItem {
+  project_id: string;
+  name: string;
+  description: string;
+  category: string;
+  created_at: string;
+  tags: string[];
+}
 
 export default function DashboardPage() {
+  const { activeWorkspace } = useWorkspace();
   const { openNewProject } = useNewProject();
-  const [isEmpty, setIsEmpty] = useState(false);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [computeUsage, setComputeUsage] = useState("0 TFlops");
+  const [storageUsed, setStorageUsed] = useState("0 KB");
+  const [activeAgents, setActiveAgents] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const activeWorkspaceId = activeWorkspace?.workspace_id || "default-ws";
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+
+    setLoading(true);
+    // 1. Fetch Projects
+    fetch(`/workspaces/projects?workspace_id=${activeWorkspaceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setProjects(data.data);
+        }
+      })
+      .catch((err) => console.error("Error fetching workspace projects", err))
+      .finally(() => setLoading(false));
+
+    // 2. Fetch Metrics & Health
+    fetch("/api/platform/metrics")
+      .then((res) => res.json())
+      .then((metrics) => {
+        const reqs = metrics.api_requests_total || 0;
+        setComputeUsage(`${(reqs * 0.12).toFixed(1)} GFlops`);
+      })
+      .catch((err) => console.error("Error fetching metrics", err));
+
+    fetch(`/product/workspace/${activeWorkspaceId}/dashboard`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data && data.data.stats) {
+          const stats = data.data.stats;
+          const kb = (stats.storage_used_bytes / 1024).toFixed(1);
+          setStorageUsed(`${kb} KB`);
+        }
+      })
+      .catch((err) => console.error("Error fetching workspace dashboard stats", err));
+
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((health) => {
+        if (health.agents) {
+          const count = Object.values(health.agents).filter(v => v === "healthy").length;
+          setActiveAgents(count);
+        }
+      })
+      .catch((err) => console.error("Error fetching system health", err));
+
+  }, [activeWorkspaceId]);
+
+  const metrics = [
+    {
+      title: "Compute Usage",
+      value: computeUsage,
+      icon: Cpu,
+    },
+    {
+      title: "Storage Index",
+      value: storageUsed,
+      icon: Database,
+    },
+    {
+      title: "Active Agents",
+      value: (
+        <span className="flex items-baseline">
+          {activeAgents} 
+          <span className="text-green-400 text-xs font-normal ml-1.5 lowercase">
+            online
+          </span>
+        </span>
+      ),
+      icon: Users,
+    }
+  ];
 
   return (
     <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex flex-col justify-between min-h-[calc(100vh-64px)] relative">
@@ -131,17 +124,13 @@ export default function DashboardPage() {
             <h3 className="text-xl font-bold text-on-surface tracking-tight">
               Active Projects
             </h3>
-            <Button 
-              variant="ghost" 
-              size="xs" 
-              onClick={() => setIsEmpty(!isEmpty)} 
-              className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-            >
-              {isEmpty ? "● Show Mock Projects" : "○ Simulate Empty State"}
-            </Button>
           </div>
 
-          {isEmpty ? (
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : projects.length === 0 ? (
             <div className="py-6">
               <EmptyState
                 icon={Boxes}
@@ -154,23 +143,23 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {PROJECTS.map((project) => (
+              {projects.map((project) => (
                 <Link
-                  key={project.id}
-                  href={project.id === "proj-1" ? "/dashboard/workflows" : "#"}
+                  key={project.project_id}
+                  href="/dashboard/workflows"
                   className="block h-full cursor-pointer hover:no-underline"
                 >
                   <ProjectCard
-                    title={project.title}
-                    description={project.description}
-                    status={project.status}
-                    statusColorClass={project.statusColorClass}
-                    progress={project.progress}
-                    progressBarColorClass={project.progressBarColorClass}
-                    icon={project.icon}
-                    iconBgClass={project.iconBgClass}
-                    members={project.members}
-                    extraMembers={project.extraMembers}
+                    title={project.name}
+                    description={project.description || "Active collaboration project"}
+                    status="Active"
+                    statusColorClass="text-green-400"
+                    progress={100}
+                    progressBarColorClass="bg-primary"
+                    icon={Boxes}
+                    iconBgClass="bg-primary/10 border-primary/20"
+                    members={[]}
+                    extraMembers={0}
                   />
                 </Link>
               ))}
@@ -180,7 +169,7 @@ export default function DashboardPage() {
 
         {/* Bottom Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-          {METRICS.map((metric) => (
+          {metrics.map((metric) => (
             <MetricCard
               key={metric.title}
               title={metric.title}

@@ -74,7 +74,7 @@ export default function Hero() {
           variants={itemVariants} 
           className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
         >
-          <Link href="/dashboard" className="w-full sm:w-auto">
+          <Link href="/login" className="w-full sm:w-auto">
             <Button 
               className="w-full px-8 py-6 bg-primary text-primary-foreground text-base font-semibold rounded-lg shadow-lg hover:bg-primary/95 hover:shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer border-none"
             >

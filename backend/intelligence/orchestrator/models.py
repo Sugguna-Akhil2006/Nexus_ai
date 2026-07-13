@@ -55,6 +55,13 @@ class ExecutionGraph(BaseModel):
     edges: List[tuple[str, str]] = Field(default_factory=list)  # (from_node, to_node)
 
 
+class ExecutionStep(BaseModel):
+    """A step inside the execution plan."""
+    step_id: str
+    module_name: str
+    action: str
+
+
 class OrchestrationPlan(BaseModel):
     """Consolidated plan with execution graph and optimizer policy settings."""
 
@@ -62,6 +69,9 @@ class OrchestrationPlan(BaseModel):
     graph: ExecutionGraph = Field(default_factory=ExecutionGraph)
     policy: ExecutionPolicy = Field(default_factory=ExecutionPolicy)
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    steps: List[ExecutionStep] = Field(default_factory=list)
+    execution_mode: str = "PARALLEL"
+
 
 
 class OrchestrationContextDetails(BaseModel):
@@ -96,3 +106,26 @@ class OrchestratedResult(BaseModel):
     confidence_score: float = 0.0
     errors: Dict[str, str] = Field(default_factory=dict)  # module_name -> error_msg
     completed_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+class OrchestrationRequest(BaseModel):
+    """Payload representing a client request for the orchestrator."""
+
+    workspace_id: str
+    user_id: str
+    query: str
+    document_ids: List[str] = Field(default_factory=list)
+    options: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UnifiedIntelligenceResponse(BaseModel):
+    """Payload representing the formatted response from the orchestrator."""
+
+    response_id: str
+    modules_executed: List[str]
+    execution_timeline: List[Dict[str, Any]]
+    evidence_sources: List[Any]
+    confidence_score: float
+    reasoning_summary: str
+    final_response: str
+

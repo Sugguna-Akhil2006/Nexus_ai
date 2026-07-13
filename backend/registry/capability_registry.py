@@ -16,7 +16,7 @@ class CapabilityRegistry:
     """Thread-safe control plane registry managing all AI capabilities."""
 
     _instance = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __new__(cls) -> "CapabilityRegistry":
         with cls._lock:
@@ -260,6 +260,28 @@ class CapabilityRegistry:
             dependencies=["module-githubintelligence"]
         ))
 
+        # Seed default plugins in marketplace registry
+        default_plugins = [
+            ("agent-1", "Synthetix Architect", "1.2.0", "A high-fidelity system architect for building scalable microservices and infrastructure diagrams."),
+            ("agent-2", "AuditMaster Pro", "2.1.0", "Autonomous security auditor specialized in Solidity smart contracts and DeFi protocol safety checks."),
+            ("agent-3", "Lexicon Analyst", "1.0.5", "Linguistic agent for cross-market sentiment analysis and localized copywriting with high emotional IQ."),
+            ("agent-4", "QuerySQL Genius", "1.0.0", "Translates natural language to complex SQL queries, optimizes executions, and builds live spreadsheets."),
+            ("agent-5", "PromptCraft AI", "1.1.2", "Deep research agent specialized in parsing prompt vulnerabilities and tuning system configurations.")
+        ]
+        for p_id, p_name, p_ver, p_desc in default_plugins:
+            # Only seed if not already present
+            if p_id not in self._capabilities:
+                self.register_capability(CapabilityMetadata(
+                    capability_id=p_id,
+                    name=p_name,
+                    type=CapabilityType.PLUGIN,
+                    version=p_ver,
+                    description=p_desc,
+                    author="Community",
+                    tags=["agent", "marketplace"],
+                    extra={"is_enabled": False}  # Default uninstalled
+                ))
+
     def _publish_event(self, event_name: str, payload: dict) -> None:
         event = Event(
             event_type=EventType.CUSTOM_EVENT,
@@ -270,7 +292,7 @@ class CapabilityRegistry:
                 **payload
             }
         )
-        self.event_bus.publish(event)
+        self._event_bus.publish(event)
 
     def clear(self) -> None:
         """Clears registry database and cache (test helper)."""

@@ -21,30 +21,9 @@ interface ActivityItem {
   iconColorClass: string;
 }
 
-const ACTIVITIES: ActivityItem[] = [
-  {
-    id: "act-1",
-    title: "Dataset synchronized",
-    subtitle: "Shard-11 (Quantum-Link) verified",
-    time: "Just now",
-    icon: RefreshCw,
-    iconBgClass: "bg-primary/10",
-    iconColorClass: "text-primary",
-  },
-  {
-    id: "act-2",
-    title: "Security audit completed",
-    subtitle: "All 14 endpoints secure",
-    time: "12m ago",
-    icon: ShieldCheck,
-    iconBgClass: "bg-green-500/10 border border-green-500/20",
-    iconColorClass: "text-green-400",
-  },
-];
-
 export default function ActivityPanel() {
   const { activeWorkspace } = useWorkspace();
-  const [activities, setActivities] = useState<ActivityItem[]>(ACTIVITIES);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
     if (!activeWorkspace) return;
@@ -61,9 +40,7 @@ export default function ActivityPanel() {
             iconBgClass: "bg-primary/10",
             iconColorClass: "text-primary",
           }));
-          if (list.length > 0) {
-            setActivities(list);
-          }
+          setActivities(list);
         }
       })
       .catch((err) => console.error("Error loading dashboard activities", err));
@@ -84,30 +61,36 @@ export default function ActivityPanel() {
 
       {/* Activity List */}
       <div className="space-y-3 overflow-y-auto max-h-[300px] pr-1 scrollbar-thin">
-        {activities.map((activity) => (
-          <div
-            key={activity.id}
-            className="flex gap-4 p-3 rounded-lg bg-transparent hover:bg-surface-container-high/30 border border-transparent hover:border-outline-variant transition-all duration-200"
-          >
-            {/* Action Icon */}
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${activity.iconBgClass} ${activity.iconColorClass}`}>
-              <activity.icon className="size-5" />
-            </div>
-            
-            {/* Description */}
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-on-surface leading-tight">
-                {activity.title}
-              </span>
-              <span className="text-xs text-on-surface-variant leading-relaxed">
-                {activity.subtitle}
-              </span>
-              <span className="text-[10px] uppercase font-mono tracking-wider text-on-surface-variant mt-1.5 select-none">
-                {activity.time}
-              </span>
-            </div>
+        {activities.length === 0 ? (
+          <div className="text-center py-8 text-xs text-on-surface-variant/60 font-normal">
+            No Recent Activity
           </div>
-        ))}
+        ) : (
+          activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex gap-4 p-3 rounded-lg bg-transparent hover:bg-surface-container-high/30 border border-transparent hover:border-outline-variant transition-all duration-200"
+            >
+              {/* Action Icon */}
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${activity.iconBgClass} ${activity.iconColorClass}`}>
+                <activity.icon className="size-5" />
+              </div>
+              
+              {/* Description */}
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-on-surface leading-tight">
+                  {activity.title}
+                </span>
+                <span className="text-xs text-on-surface-variant leading-relaxed">
+                  {activity.subtitle}
+                </span>
+                <span className="text-[10px] uppercase font-mono tracking-wider text-on-surface-variant mt-1.5 select-none">
+                  {activity.time}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Footer Log Action */}

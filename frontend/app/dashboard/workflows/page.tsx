@@ -32,58 +32,10 @@ import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import { toast } from "sonner";
 
 // Initial nodes matching HTML layout coordinates
-const INITIAL_NODES: WorkflowNode[] = [
-  {
-    id: "node-1",
-    type: "webhookNode",
-    position: { x: 300, y: 150 },
-    data: { label: "API Ingest", type: "webhook" },
-    selected: true, // Default selected to match HTML style
-    // custom properties metadata
-    endpoint: "/v1/webhooks/ingest",
-    auth: "Bearer Token",
-    autoRetry: true,
-    logPayloads: false,
-    schema: '{\n  "type": "object",\n  "required": ["userId"],\n  "properties": {\n    "userId": { "type": "string" }\n  }\n}',
-  } as any,
-  {
-    id: "node-2",
-    type: "scriptNode",
-    position: { x: 580, y: 280 },
-    data: { label: "Transform Data", subText: "mapping v1.2", type: "script" },
-    autoRetry: true,
-    logPayloads: true,
-    schema: '{\n  "type": "object",\n  "required": ["data"],\n  "properties": {\n    "data": { "type": "object" }\n  }\n}',
-  } as any,
-  {
-    id: "node-3",
-    type: "dbNode",
-    position: { x: 900, y: 160 },
-    data: { label: "Store Result", type: "db" },
-    autoRetry: false,
-    logPayloads: false,
-  } as any,
-];
+const INITIAL_NODES: WorkflowNode[] = [];
 
 // Initial connection edges
-const INITIAL_EDGES: Edge[] = [
-  {
-    id: "edge-1-2",
-    source: "node-1",
-    sourceHandle: "output",
-    target: "node-2",
-    targetHandle: "input",
-    style: { stroke: "#424754", strokeWidth: 2 },
-  },
-  {
-    id: "edge-2-3",
-    source: "node-2",
-    sourceHandle: "output",
-    target: "node-3",
-    targetHandle: "input",
-    style: { stroke: "#424754", strokeWidth: 2 },
-  },
-];
+const INITIAL_EDGES: Edge[] = [];
 
 function WorkflowBuilderContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(INITIAL_NODES);
@@ -216,11 +168,80 @@ function WorkflowBuilderContent() {
           selected: n.id === matchedNode.id,
         }))
       );
-      // Pan camera to focal node coordinate
       fitView({ nodes: [matchedNode], duration: 800 });
     } else {
       toast.error(`No node matched label: "${searchQuery}"`);
     }
+  };
+
+  const handleDeploy = async () => {
+    const steps = nodes.map(n => ({
+      step_id: n.id,
+      name: n.data.label,
+      step_type: n.type || "webhookNode",
+      config: {
+        endpoint: (n as any).endpoint || "",
+        auth: (n as any).auth || "",
+        autoRetry: (n as any).autoRetry || false,
+        logPayloads: (n as any).logPayloads || false,
+        schema: (n as any).schema || ""
+      },
+      dependencies: edges.filter(e => e.target === n.id).map(e => e.source)
+    }));
+
+    toast.promise(
+      (async () => {
+        const res = await fetch("/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Visual Pipeline canvas",
+            description: "Interactive canvas workflow definition",
+            steps
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Deployment failed.");
+        }
+        const data = await res.json();
+        sessionStorage.setItem("active_workflow_definition_id", data.definition_id);
+        return data;
+      })(),
+      {
+        loading: 'Serializing nodes, mapping validation schemas, and deploying triggers...',
+        success: (data: any) => `Workflow canvas successfully deployed. ID: ${data.definition_id}`,
+        error: (err: any) => err.message || 'Deployment failed.',
+      }
+    );
+  };
+
+  const handleRunDebug = async () => {
+    const definitionId = sessionStorage.getItem("active_workflow_definition_id");
+    if (!definitionId) {
+      toast.error("Please deploy the workflow first before running execution.");
+      return;
+    }
+
+    toast.promise(
+      (async () => {
+        const res = await fetch(`/workflows/${definitionId}/execute`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Debug run execution failed.");
+        }
+        return await res.json();
+      })(),
+      {
+        loading: 'Starting debug session and checking node endpoints...',
+        success: (data: any) => `Debug trace completed. Instance ID: ${data.instance_id}`,
+        error: (err: any) => err.message || 'Debug run failed.',
+      }
+    );
   };
 
   return (
@@ -316,12 +337,21 @@ function WorkflowBuilderContent() {
         onUpdate={handleUpdateNodeProperties}
         onDelete={handleDeleteNode}
       />
+
+      {/* Floating Bottom Action Bar inside content */}
+      <div className="absolute bottom-0 inset-x-0">
+        <BottomActionBar
+          lastSaved="Just now"
+          onRunDebug={handleRunDebug}
+          onDeploy={handleDeploy}
+        />
+      </div>
     </div>
   );
 }
 
 export default function WorkflowBuilderPage() {
-  const [isEmpty, setIsEmpty] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(true);
 
   return (
     <ReactFlowProvider>
@@ -353,30 +383,7 @@ export default function WorkflowBuilderPage() {
             />
           </div>
         ) : (
-          <>
-            <WorkflowBuilderContent />
-            
-            {/* Bottom actions triggers */}
-            <BottomActionBar
-              lastSaved="Just now"
-              onRunDebug={() => toast.promise(
-                new Promise((resolve) => setTimeout(resolve, 1500)),
-                {
-                  loading: 'Starting debug session and checking node endpoints...',
-                  success: 'Debug trace completed. All node endpoints validated successfully.',
-                  error: 'Debug run failed.',
-                }
-              )}
-              onDeploy={() => toast.promise(
-                new Promise((resolve) => setTimeout(resolve, 2000)),
-                {
-                  loading: 'Serializing nodes, mapping validation schemas, and deploying triggers...',
-                  success: 'Workflow canvas successfully deployed to active production cluster.',
-                  error: 'Deployment failed.',
-                }
-              )}
-            />
-          </>
+          <WorkflowBuilderContent />
         )}
       </div>
     </ReactFlowProvider>

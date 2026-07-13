@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ResumeUploadProps {
-  onUploadStart: (filename: string) => Promise<void> | void;
+  onUploadStart: (filename: string, file: File) => Promise<void> | void;
   isAnalyzing: boolean;
   analyzingStep: string;
 }
@@ -38,7 +38,7 @@ export default function ResumeUpload({
     if (files && files.length > 0) {
       const file = files[0];
       if (file.name.endsWith(".pdf") || file.name.endsWith(".docx")) {
-        await onUploadStart(file.name);
+        await onUploadStart(file.name, file);
       } else {
         toast.error("Please drop a PDF or DOCX file.");
       }
@@ -51,7 +51,7 @@ export default function ResumeUpload({
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      await onUploadStart(file.name);
+      await onUploadStart(file.name, file);
     }
   };
 

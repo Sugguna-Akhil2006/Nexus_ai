@@ -23,32 +23,44 @@ export default function ServerLoadChart() {
         const timeVal = new Date(Date.now() - (15 - i) * 60000);
         return {
           time: timeVal.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          load: Math.floor(Math.random() * 30 + bias),
+          load: bias,
         };
       });
     };
 
-    setDataA(initData(35));
-    setDataB(initData(20));
+    setDataA(initData(15));
+    setDataB(initData(10));
   }, []);
 
-  // Live ticking simulation pipeline
+  // Live ticking real data fetch pipeline
   useEffect(() => {
-    const interval = setInterval(() => {
-      const timeVal = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      
-      setDataA((prev) => {
-        const next = [...prev.slice(1)];
-        next.push({ time: timeVal, load: Math.floor(Math.random() * 30 + 35) });
-        return next;
-      });
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/admin/system");
+        if (res.ok) {
+          const body = await res.json();
+          const cpu = body.data?.cpu_usage_pct ?? 15.0;
+          const timeVal = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          
+          setDataA((prev) => {
+            const next = prev.length >= 15 ? [...prev.slice(1)] : [...prev];
+            next.push({ time: timeVal, load: Math.round(cpu) });
+            return next;
+          });
 
-      setDataB((prev) => {
-        const next = [...prev.slice(1)];
-        next.push({ time: timeVal, load: Math.floor(Math.random() * 30 + 20) });
-        return next;
-      });
-    }, 3000);
+          setDataB((prev) => {
+            const next = prev.length >= 15 ? [...prev.slice(1)] : [...prev];
+            next.push({ time: timeVal, load: Math.round(Math.max(2, cpu * 0.75)) });
+            return next;
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch server load metrics", e);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
 
     return () => clearInterval(interval);
   }, []);

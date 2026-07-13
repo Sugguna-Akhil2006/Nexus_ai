@@ -98,6 +98,30 @@ class GitHubReportGenerator:
             f"We identified {health_report.active_contributors} active contributors and a Bus Factor of {health_report.bus_factor}."
         )
 
+        try:
+            from backend.interfaces.model import ModelRegistry, InferenceRequest
+            registry = ModelRegistry()
+            providers = registry.list_providers()
+            if providers:
+                provider = registry.get_provider(providers[0])
+                prompt_text = (
+                    f"You are an expert software engineering agent. Write a professional executive summary for the repository '{repo_report.repository_url}'. "
+                    f"Technologies: {', '.join(languages + frameworks)}. Files count: {repo_report.file_count}. "
+                    f"Lines count: {repo_report.total_lines}. Overall Health: {overall_health}/100. "
+                    f"Code Maintainability: {maintainability}/100. Active Contributors: {health_report.active_contributors}. "
+                    f"Keep it to one concise and clear professional summary paragraph."
+                )
+                inf_req = InferenceRequest(
+                    model="mock-chat-model",
+                    messages=[{"role": "user", "content": prompt_text}],
+                    prompt=prompt_text
+                )
+                response = provider.generate(inf_req)
+                if response and response.content:
+                    exec_summary = response.content.strip()
+        except Exception as e:
+            pass
+
         # Extract strengths & risks
         strengths = []
         risks = []

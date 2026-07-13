@@ -16,8 +16,13 @@ class SystemMonitor:
 
     def get_system_stats(self) -> Dict[str, Any]:
         """Gathers system usage parameters with safe mock fallbacks."""
-        # CPU Usage mock / estimate
-        cpu_pct = round(random.uniform(5.0, 35.0), 1)
+        # CPU Usage
+        cpu_pct = 0.0
+        try:
+            import psutil
+            cpu_pct = psutil.cpu_percent(interval=0.1)
+        except Exception:
+            cpu_pct = 15.0
 
         # Memory Usage calculations
         memory_mb = 124.5
@@ -25,17 +30,23 @@ class SystemMonitor:
             import psutil
             process = psutil.Process(os.getpid())
             memory_mb = round(process.memory_info().rss / 1024 / 1024, 2)
-        except ImportError:
+        except Exception:
             pass
 
-        # Disk usage mock
+        # Disk usage using shutil
         disk_pct = 42.1
+        try:
+            import shutil
+            total, used, free = shutil.disk_usage(".")
+            disk_pct = round((used / total) * 100, 1)
+        except Exception:
+            pass
 
         # Cache metrics
         cache_stats = self._cache.stats()
 
-        # Queue metrics mock
-        queue_len = random.randint(0, 3)
+        # Queue metrics mock (can keep safe low queue count)
+        queue_len = 0
 
         return {
             "cpu_usage_pct": cpu_pct,

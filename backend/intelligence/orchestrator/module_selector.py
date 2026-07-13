@@ -33,14 +33,19 @@ class ModuleSelector:
             List of matching module names.
         """
         available_modules = self._registry.list_modules()
-        # Fallback to known modules list if registry is empty (e.g. during startup/testing)
-        check_modules = available_modules if available_modules else ["resume", "github", "document", "professional", "research"]
+        core_modules = ["resume", "github", "document", "professional", "research"]
+        check_modules = list(set(core_modules + [m.lower() for m in available_modules]))
+
 
         if explicit_modules:
             return explicit_modules
 
         # Simple semantic/keyword intent parsing fallback
-        query_lower = query.lower()
+        if isinstance(query, list):
+            query_str = " ".join(query)
+        else:
+            query_str = query
+        query_lower = query_str.lower()
         selected: Set[str] = set()
 
         # Keyword mapping
@@ -54,21 +59,37 @@ class ModuleSelector:
 
         # Match query keywords
         for mod, keywords in mappings.items():
-            if mod in check_modules:
+            # Check if mod is matched in check_modules (either directly or as a substring)
+            has_module = False
+            for m in check_modules:
+                if mod.lower() in m.lower():
+                    has_module = True
+                    break
+            if has_module:
                 if any(kw in query_lower for kw in keywords):
-                    selected.add(mod)
+                    selected.add(mod.capitalize() if mod != "github" else "GitHub")
 
         # Match based on document presence
         if document_ids:
-            if "document" in available_modules:
-                selected.add("document")
+            # check if document is in registered modules
+            if any("document" in m.lower() for m in check_modules):
+                selected.add("Document")
 
         # Fallback to general modules if nothing matched
         if not selected:
-            # Default to document or research if available, otherwise first module
-            if "document" in available_modules:
-                selected.add("document")
-            elif available_modules:
-                selected.add(available_modules[0])
+            # Default to Document or Research if available, otherwise first module
+            doc_mod = next((m for m in check_modules if "document" in m.lower()), None)
+            if doc_mod:
+                selected.add("Document")
+            elif check_modules:
+                first_name = check_modules[0]
+                # Map to short name
+                for key in mappings.keys():
+                    if key.lower() in first_name.lower():
+                        selected.add(key.capitalize() if key != "github" else "GitHub")
+                        break
+                else:
+                    selected.add(first_name)
 
         return sorted(list(selected))
+

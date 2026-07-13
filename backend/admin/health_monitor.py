@@ -6,6 +6,9 @@ import time
 
 from backend.api.sqlite_mock import DBStorage
 
+# Record the process start time once at module import
+_PROCESS_START_TIME: float = time.time()
+
 
 class HealthMonitor:
     """Performs deep checks testing database responsiveness, gateway latency, and WebSocket states."""
@@ -46,6 +49,7 @@ class HealthMonitor:
         return {
             "status": overall,
             "timestamp": time.time(),
+            "uptime_seconds": round(time.time() - _PROCESS_START_TIME, 1),
             "services": {
                 "database": {
                     "status": db_status,

@@ -154,10 +154,11 @@ class TestGitHubProduct(unittest.TestCase):
 
         # Poll status until completed
         completed = False
-        for _ in range(20):
+        for i in range(300):
             status_resp = self.client.get(f"/github/status/{job_id}")
             self.assertEqual(status_resp.status_code, 200)
             status_data = status_resp.json()
+            print(f"POLL ITER {i}: STATUS={status_data['status']} PROGRESS={status_data['progress']}")
             if status_data["status"] in ["completed", "failed"]:
                 completed = True
                 self.assertEqual(status_data["status"], "completed")

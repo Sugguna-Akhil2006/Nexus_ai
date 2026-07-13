@@ -40,3 +40,10 @@ class ApprovalWorkflow:
         """Wipes the workflow tickets."""
         with self._lock:
             self._tickets.clear()
+
+    def determine_approval_route(self, risk_level: Any, context: Dict[str, Any]) -> Any:
+        """Determines the route route type based on calculated risk levels."""
+        from backend.governance.models import ApprovalType, RiskLevel
+        if risk_level in [RiskLevel.CRITICAL, RiskLevel.HIGH]:
+            return ApprovalType.MANUAL
+        return ApprovalType.AUTO

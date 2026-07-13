@@ -21,7 +21,9 @@ export default function TokenConsumptionChart({
 
   // Format values on Y axis
   const formatYAxis = (tick: number) => {
-    return `${tick}M`;
+    if (tick >= 1000000) return `${(tick / 1000000).toFixed(1)}M`;
+    if (tick >= 1000) return `${(tick / 1000).toFixed(1)}k`;
+    return `${tick}`;
   };
 
   return (
@@ -87,7 +89,7 @@ export default function TokenConsumptionChart({
                   return (
                     <div className="bg-surface-container border border-outline-variant p-2.5 rounded-xl text-[10px] space-y-0.5 shadow-2xl font-medium">
                       <p className="font-bold text-on-surface">{payload[0].payload.label}</p>
-                      <p className="text-primary font-bold">Usage: {payload[0].value}M tokens</p>
+                      <p className="text-primary font-bold">Usage: {payload[0].value} tokens</p>
                     </div>
                   );
                 }

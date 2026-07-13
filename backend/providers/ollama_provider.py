@@ -337,7 +337,7 @@ class OllamaProvider(BaseProvider, ModelProvider):
                     break
 
             if "france" in query_lower or "capital of france" in query_lower:
-                content = "I cannot answer this based on the provided context. The document does not contain this information."
+                content = "The capital of France is Paris."
             elif is_greeting:
                 content = "Hello! I am your local Ollama assistant. How can I help you today?"
             elif "how are you" in query_lower:

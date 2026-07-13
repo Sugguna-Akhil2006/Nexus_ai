@@ -59,32 +59,73 @@ export default function AuthCard() {
     }
 
     setIsLoading(true);
-    // Simulate API request authentication lag
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-
-    if (mode === "forgot") {
-      toast.success(`Password reset link sent to: ${email}`);
-      setMode("login");
-    } else if (mode === "login") {
-      // Seed mock user into auth context (writes to localStorage)
-      login({
-        name: email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        email,
-        role: "Admin",
-      });
-      toast.success(`Welcome back! Signed in as ${email}`);
-      const returnTo = searchParams.get("returnTo");
-      router.push(returnTo ? decodeURIComponent(returnTo) : "/dashboard");
-    } else {
-      // Sign up — auto log in
-      login({
-        name: name.trim() || email.split("@")[0],
-        email,
-        role: "Member",
-      });
-      toast.success(`Account created! Welcome, ${name.trim() || email}.`);
-      router.push("/dashboard");
+    try {
+      if (mode === "forgot") {
+        // Mock password reset endpoint or mock success
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        toast.success(`Password reset link sent to: ${email}`);
+        setMode("login");
+      } else if (mode === "login") {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Invalid username or password.");
+        }
+        const data = await res.json();
+        const mappedRole: "Admin" | "Member" | "Viewer" = data.role && data.role.toLowerCase() === "admin" ? "Admin" : data.role && data.role.toLowerCase() === "viewer" ? "Viewer" : "Member";
+        if (mappedRole === "Admin") {
+          throw new Error("Admin login is restricted here. Please use the secure Admin Portal.");
+        }
+        document.cookie = `Authorization=Bearer ${data.token}; path=/; max-age=3600; SameSite=Strict`;
+        login({
+          name: data.username.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          email: data.username,
+          role: mappedRole,
+          token: data.token
+        } as any);
+        toast.success(`Welcome back! Signed in as ${data.username}`);
+        const returnTo = searchParams.get("returnTo");
+        router.push(returnTo ? decodeURIComponent(returnTo) : "/dashboard");
+      } else {
+        // signup mode
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password, email })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Registration failed. Username may already exist.");
+        }
+        // Auto-login
+        const loginRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password })
+        });
+        if (!loginRes.ok) {
+          throw new Error("Registration succeeded but auto-login failed.");
+        }
+        const data = await loginRes.json();
+        const mappedRole: "Admin" | "Member" | "Viewer" = data.role && data.role.toLowerCase() === "admin" ? "Admin" : data.role && data.role.toLowerCase() === "viewer" ? "Viewer" : "Member";
+        document.cookie = `Authorization=Bearer ${data.token}; path=/; max-age=3600; SameSite=Strict`;
+        login({
+          name: name.trim() || data.username.split("@")[0],
+          email: data.username,
+          role: mappedRole,
+          token: data.token
+        } as any);
+        toast.success(`Account created! Welcome, ${name.trim() || email}.`);
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Authentication error.");
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -296,7 +296,8 @@ class VectorSearchProvider(SearchProvider):
     def health_check(self) -> bool:
         return True
 
-SearchRegistry().register_provider("vector_search", VectorSearchProvider(VectorRegistry()))
+if "vector_search" not in SearchRegistry().list_providers():
+    SearchRegistry().register_provider("vector_search", VectorSearchProvider(VectorRegistry()))
 
 workspace_agent = WorkspaceAgent()
 workspace_agent.initialize()
@@ -386,6 +387,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi import Request
+from backend.platform.hardening.metrics_collector import MetricsCollector
+metrics_col = MetricsCollector()
+
+@app.middleware("http")
+async def correlation_id_and_metrics_middleware(request: Request, call_next):
+    try:
+        content_length = request.headers.get("content-length")
+        size = int(content_length) if content_length else 0
+    except Exception:
+        size = 0
+        
+    is_failure = False
+    try:
+        response = await call_next(request)
+        if response.status_code >= 400:
+            is_failure = True
+        return response
+    except Exception as e:
+        is_failure = True
+        raise
+    finally:
+        metrics_col.record_request(request.url.path, data_size_bytes=size, is_failure=is_failure)
+
 from backend.tenant.tenant_middleware import TenantContextMiddleware
 app.add_middleware(TenantContextMiddleware)
 
@@ -403,6 +428,10 @@ app.include_router(document_router)
 
 from backend.api.intelligence.router import router as gateway_router
 app.include_router(gateway_router)
+
+from backend.api.platform_routes import router as platform_router
+app.include_router(platform_router)
+
 
 from backend.api.public_routes import router as public_router
 app.include_router(public_router)
@@ -515,6 +544,10 @@ def list_workspaces(user_id: str = "admin"):
 
 @app.post("/api/documents/upload")
 async def upload_document(workspace_id: str, file: UploadFile = File(...)):
+    try:
+        metrics_col.increment("storage_uploads_total")
+    except Exception:
+        pass
     start_extraction = time.perf_counter()
     contents = await file.read()
 

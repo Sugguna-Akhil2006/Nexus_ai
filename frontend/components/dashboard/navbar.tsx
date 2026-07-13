@@ -69,7 +69,7 @@ const SEARCH_INDEX = [
 
 export default function DashboardNavbar() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [open, setOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,7 +149,7 @@ export default function DashboardNavbar() {
         item.category.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
-  const profileImageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuAQPWQApcT52DE-3vQdZRRCoKniiP3TrN2d0bhsPn6NiQzY-0nrV_bNt2qYfeq6tPIplH4q5K6Vh7Ob-E1alQEMRiUUxEGlevIxrpeCDXGgph3_yqC1v63qVcTwDBblsZq1fG5xjsxnyxUjrYjvII392MblRFeyUknfePTonIS1DvB5kY1bmujaQ6ft5-lBHRpH3pfsRAff-FMnSoOF1RNZAkshyDM1yjk1ow5_RLXX6TziFiDQIglB78U4_DQSXiGHr3MoQI98gviJ";
+  const profileImageUrl = user?.avatarUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuAQPWQApcT52DE-3vQdZRRCoKniiP3TrN2d0bhsPn6NiQzY-0nrV_bNt2qYfeq6tPIplH4q5K6Vh7Ob-E1alQEMRiUUxEGlevIxrpeCDXGgph3_yqC1v63qVcTwDBblsZq1fG5xjsxnyxUjrYjvII392MblRFeyUknfePTonIS1DvB5kY1bmujaQ6ft5-lBHRpH3pfsRAff-FMnSoOF1RNZAkshyDM1yjk1ow5_RLXX6TziFiDQIglB78U4_DQSXiGHr3MoQI98gviJ";
 
   return (
     <>
@@ -405,15 +405,17 @@ export default function DashboardNavbar() {
                     <div className="relative flex-shrink-0">
                       <Avatar className="size-10 border-2 border-outline-variant">
                         <AvatarImage src={profileImageUrl} alt="User Profile" />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold">AS</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                          {user?.name ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "AS"}
+                        </AvatarFallback>
                       </Avatar>
                       <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-surface-container-low" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-on-surface truncate leading-tight">Alex Sterling</p>
-                      <p className="text-[11px] text-on-surface-variant truncate">alex.s@enterprise.ai</p>
+                      <p className="text-sm font-semibold text-on-surface truncate leading-tight">{user?.name || "Alex Sterling"}</p>
+                      <p className="text-[11px] text-on-surface-variant truncate">{user?.email || "alex.s@enterprise.ai"}</p>
                       <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                        Admin
+                        {user?.role || "Admin"}
                       </span>
                     </div>
                   </div>

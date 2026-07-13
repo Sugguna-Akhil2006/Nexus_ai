@@ -17,14 +17,21 @@ export interface DocumentAnalysis {
   risks: string[];
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface AIPanelProps {
   analysis: DocumentAnalysis;
+  chatMessages: ChatMessage[];
   onSendInquiry: (prompt: string) => void;
+  isSending?: boolean;
 }
 
 type TabType = "summary" | "datapoints" | "risks";
 
-export default function AIPanel({ analysis, onSendInquiry }: AIPanelProps) {
+export default function AIPanel({ analysis, chatMessages, onSendInquiry, isSending = false }: AIPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("summary");
 
   const mapBgUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuCUYwaiQsVtVPi8DTkljyii-MXe2bF_FeWmBnsWHkXsIFHL-2E7s5A4C8XJvFxxUHo1u4naKYo7XDTXN2UzA2FAYwImHbVpRovdRtpwwvqZbK1HAODSsZq4vrvLjdBY0NZEVqnzd9FqY0JGxb2k_lFJYxzF5t_ohBP3Eb0I0M7sw_E-d2mZJjZf8bAG9X7jj95HpmvZKssiQNSqd0wGyCdjwE3Aerl3s2GzP6bHwDtVHdXxU-wfTOlP1-nF2FH6_X2ew3Js12hXqQzb";
@@ -159,6 +166,35 @@ export default function AIPanel({ analysis, onSendInquiry }: AIPanelProps) {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Chat message bubbles history */}
+        {chatMessages.length > 0 && (
+          <div className="space-y-3.5 pt-4 border-t border-outline-variant">
+            <h3 className="text-[10px] font-bold text-on-surface uppercase tracking-wider pl-0.5">
+              Q&A History
+            </h3>
+            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1 select-text">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "p-3 rounded-lg text-xs leading-relaxed max-w-[85%] font-medium",
+                    msg.role === "user"
+                      ? "bg-primary/10 border border-primary/20 text-on-surface ml-auto rounded-tr-none"
+                      : "bg-surface-container border border-outline-variant text-on-surface rounded-tl-none"
+                  )}
+                >
+                  {msg.content}
+                </div>
+              ))}
+              {isSending && (
+                <div className="p-3 rounded-lg text-xs leading-relaxed max-w-[85%] font-medium bg-surface-container border border-outline-variant text-on-surface rounded-tl-none animate-pulse">
+                  AI is thinking...
+                </div>
+              )}
             </div>
           </div>
         )}

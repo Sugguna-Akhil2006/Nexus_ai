@@ -21,15 +21,21 @@ interface FileExplorerProps {
   activeFilename: string;
   onSelectFile: (filename: string) => void;
   folders: FolderItem[];
+  onUploadSuccess?: () => void;
 }
 
 export default function FileExplorer({
   activeFilename,
   onSelectFile,
   folders,
+  onUploadSuccess,
 }: FileExplorerProps) {
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    "folder-1": true, // Project Alpha expanded by default
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = { "folder-1": true, "workspace-docs": true };
+    folders.forEach((f) => {
+      init[f.id] = true;
+    });
+    return init;
   });
 
   const toggleFolder = (folderId: string) => {
@@ -69,7 +75,7 @@ export default function FileExplorer({
       {/* Directory Hierarchy */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
         {/* Upload Zone */}
-        <DragDropUpload />
+        <DragDropUpload onUploadSuccess={onUploadSuccess} />
 
         <div className="space-y-1">
           {folders.map((folder) => {
@@ -138,10 +144,19 @@ export default function FileExplorer({
           <div className="w-1.5 h-8 bg-primary rounded-full animate-pulse" />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold text-on-surface leading-none">Storage Capacity</p>
-            <p className="text-[10px] text-on-surface-variant/70 leading-none mt-1.5">84.2 GB of 100 GB used</p>
-            <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-2">
-              <div className="bg-primary h-full rounded-full" style={{ width: "84.2%" }} />
-            </div>
+            {(() => {
+              const fileCount = folders.reduce((acc, f) => acc + (f.files ? f.files.length : 0), 0);
+              const usedMB = (fileCount * 1.5).toFixed(1);
+              const percentage = Math.min(100, Math.max(1, (fileCount * 1.5)));
+              return (
+                <>
+                  <p className="text-[10px] text-on-surface-variant/70 leading-none mt-1.5">{usedMB} MB of 100 MB used</p>
+                  <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-2">
+                    <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${percentage}%` }} />
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

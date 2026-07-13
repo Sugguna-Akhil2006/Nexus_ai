@@ -5,53 +5,35 @@ import { Bell, Shield, Users, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ProfileSettings from "@/components/settings/profile-settings";
-import ApiKeysManager, { ApiKeyItem } from "@/components/settings/api-keys-manager";
+
 import PreferenceSwitch from "@/components/settings/preference-switch";
 import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import WorkspaceSettingsPanel from "@/components/settings/workspace-settings";
 
-// Mock user profiles database
-const INITIAL_PROFILE = {
-  name: "Alex Sterling",
-  email: "alex@nexus-ai.corp",
-  bio: "Lead Infrastructure Architect specializing in LLM deployment and secure workspace scaling.",
-  avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBlhpoMt3jR2GI5_4dbQUe-h906NficthzrZBzLzhPP_Sk26XRjIeKEhdDe3XayRBKrDioV6YTYlejHmxj14-m4M7BI7BDR_1Z_zTUElpmcNFmlBOHXsLki-E6g2N2lZqzUO4JLJTvRLeKOsGA2mmU9VZ3MSoBuoRJiMRlQ1sg-DIfvbLOQ0Ychl0ZSeCXEtttsdSOl-Ubb3FPseUKTheJ7ZiTtUgq0lCTh001e-G5XTZ7xYxwGEye2lK7lN-f7yZuY8gkwNuTyXBQI",
-};
+import { useAuth } from "@/providers/auth-provider";
 
-// Mock credential keys database
-const INITIAL_KEYS: ApiKeyItem[] = [
-  {
-    id: "key-1",
-    name: "Production_Main_Vault",
-    keyMasked: "nx_live_••••••••••••3a9d",
-    fullValue: "nx_live_8321_xYk_p392_TfK_99183a9d",
-    lastUsed: "2 hours ago",
-    status: "Active",
-  },
-  {
-    id: "key-2",
-    name: "Development_Localhost",
-    keyMasked: "nx_test_••••••••••••7f2b",
-    fullValue: "nx_test_0428_lMp_a824_PzQ_88297f2b",
-    lastUsed: "3 days ago",
-    status: "Inactive",
-  },
-];
+
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState(INITIAL_PROFILE);
-  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>(INITIAL_KEYS);
+  const { user, updateUser } = useAuth();
   
+  const profile = {
+    name: user?.name || "Admin",
+    email: user?.email || "admin@nexus-ai.corp",
+    bio: `Workspace administrator with role: ${user?.role || "Admin"}.`,
+    avatarUrl: user?.avatarUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuBlhpoMt3jR2GI5_4dbQUe-h906NficthzrZBzLzhPP_Sk26XRjIeKEhdDe3XayRBKrDioV6YTYlejHmxj14-m4M7BI7BDR_1Z_zTUElpmcNFmlBOHXsLki-E6g2N2lZqzUO4JLJTvRLeKOsGA2mmU9VZ3MSoBuoRJiMRlQ1sg-DIfvbLOQ0Ychl0ZSeCXEtttsdSOl-Ubb3FPseUKTheJ7ZiTtUgq0lCTh001e-G5XTZ7xYxwGEye2lK7lN-f7yZuY8gkwNuTyXBQI",
+  };
+
   // Preference states
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [twoFactorAuth, setTwoFactorAuth] = useState(false);
 
-  const handleSaveProfile = (updatedProfile: typeof INITIAL_PROFILE) => {
-    setProfile(updatedProfile);
-  };
-
-  const handleKeysChange = (updatedKeys: ApiKeyItem[]) => {
-    setApiKeys(updatedKeys);
+  const handleSaveProfile = (updatedProfile: any) => {
+    updateUser({
+      name: updatedProfile.name,
+      email: updatedProfile.email,
+      avatarUrl: updatedProfile.avatarUrl,
+    });
   };
 
   return (
@@ -97,11 +79,7 @@ export default function SettingsPage() {
 
         <WorkspaceSettingsPanel />
 
-        {/* API Credentials Card */}
-        <ApiKeysManager 
-          initialKeys={apiKeys} 
-          onKeysChange={handleKeysChange} 
-        />
+
 
         {/* System Preferences toggles */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none shrink-0">

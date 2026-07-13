@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/providers/workspace-provider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,17 +230,38 @@ const EVENT_COLORS = {
 export default function ProjectDetailPage() {
   const params = useParams<{ projectId: string }>();
   const router = useRouter();
+  const { activeWorkspace } = useWorkspace();
   const [project, setProject] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const activeWorkspaceId = activeWorkspace?.workspace_id || "default-ws";
+
   useEffect(() => {
-    if (!params?.projectId) return;
-    const stored = sessionStorage.getItem(`nexus_project_${params.projectId}`);
-    if (stored) {
-      setProject(JSON.parse(stored));
-    }
-    setLoading(false);
-  }, [params?.projectId]);
+    if (!params?.projectId || !activeWorkspaceId) return;
+    
+    fetch(`/workspaces/projects?workspace_id=${activeWorkspaceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          const found = data.data.find((p: any) => p.project_id === params.projectId);
+          if (found) {
+            setProject({
+              id: found.project_id,
+              name: found.name,
+              templateId: found.category || "custom-workflow",
+              templateName: found.name,
+              category: found.category || "general",
+              createdAt: found.created_at || new Date().toISOString(),
+            });
+          }
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load project details", err);
+        setLoading(false);
+      });
+  }, [params?.projectId, activeWorkspaceId]);
 
   const config = project ? (TEMPLATE_CONFIGS[project.templateId] ?? TEMPLATE_CONFIGS["custom-workflow"]) : null;
 

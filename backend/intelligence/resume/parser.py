@@ -110,13 +110,46 @@ def clean_string_list(lst: Any) -> List[str]:
     return res
 
 
+def _safe_parse_llm_json(raw_ans: str, fallback: dict) -> dict:
+    """Strips markdown fences, extracts JSON object, and validates against placeholder strings."""
+    PLACEHOLDER_MARKERS = [
+        "Candidate Full Name",
+        "Candidate Email",
+        "University/College/School name",
+        "Company Name",
+        "Project Name",
+        "Python\", \"C++", # schema example strings
+        "FastAPI\", \"React",
+    ]
+    try:
+        # 1. Strip markdown code fences
+        cleaned = re.sub(r"```(?:json)?\s*", "", raw_ans, flags=re.IGNORECASE).strip()
+        # Remove trailing fence
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+
+        # 2. Try to extract a JSON object
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        candidate_str = match.group(0) if match else cleaned
+        parsed = json.loads(candidate_str)
+
+        # 3. Reject if the parsed JSON still contains placeholder schema markers
+        dumped = json.dumps(parsed)
+        for marker in PLACEHOLDER_MARKERS:
+            if marker in dumped:
+                return fallback
+
+        return parsed
+    except Exception:
+        return fallback
+
+
 def run_resume_llm_query(query_type: str, raw_text: str, schema: dict) -> dict:
     """Helper to query ModelRegistry model provider and parse output as JSON with fallback."""
     model_registry = ModelRegistry()
     provider_ids = model_registry.list_providers()
     
     if not provider_ids:
-        return schema
+        return {}
 
     try:
         provider = model_registry.get_provider(provider_ids[0])
@@ -125,8 +158,9 @@ def run_resume_llm_query(query_type: str, raw_text: str, schema: dict) -> dict:
         
         system_prompt = (
             f"You are a professional resume analysis assistant performing '{query_type}'. "
-            "Do NOT write any descriptions, introductions, explanations, or codeblocks wrapper tags. "
-            "Respond ONLY with a valid JSON matching this schema format:\n"
+            "Do NOT write any descriptions, introductions, explanations, or codeblock tags. "
+            "Output ONLY a single raw JSON object (no markdown, no ```). "
+            "Match exactly this schema structure:\n"
             f"{json.dumps(schema, indent=2)}"
         )
         
@@ -142,11 +176,9 @@ def run_resume_llm_query(query_type: str, raw_text: str, schema: dict) -> dict:
         )
         inf_res = provider.generate(inf_req)
         ans = inf_res.content
-
-        match = re.search(r"\{.*\}", ans, re.DOTALL)
-        return json.loads(match.group(0)) if match else json.loads(ans)
+        return _safe_parse_llm_json(ans, {})
     except Exception:
-        return schema
+        return {}
 
 
 class ResumeParser:
@@ -305,12 +337,10 @@ class ResumeParser:
                 )
                 inf_res = provider.generate(inf_req)
                 ans = inf_res.content
-
-                match = re.search(r"\{.*\}", ans, re.DOTALL)
-                parsed_json = json.loads(match.group(0)) if match else json.loads(ans)
+                parsed_json = _safe_parse_llm_json(ans, {})
             except Exception as e:
-                self.logger.warning(f"LLM parsing failed: {e}. Falling back to default parsed data.")
-                parsed_json = PARSER_SCHEMA
+                self.logger.warning(f"LLM parsing failed: {e}. Falling back to empty structure.")
+                parsed_json = {}
 
         # 5. Map structured JSON to ParsedResume Pydantic model
         try:

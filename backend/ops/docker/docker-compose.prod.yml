@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ../../../
+      dockerfile: backend/ops/docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_TYPE=postgresql
+      - DB_DSN=postgresql://postgres:postgres@postgres:5432/nexus_ai
+    depends_on:
+      - redis
+      - postgres
+    restart: always
+
+  worker:
+    build:
+      context: ../../../
+      dockerfile: backend/ops/docker/Dockerfile.worker
+    environment:
+      - ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=nexus_ai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:

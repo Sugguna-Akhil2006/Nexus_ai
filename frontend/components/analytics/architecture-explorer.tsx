@@ -146,9 +146,128 @@ const INITIAL_EDGES: Edge[] = [
   { id: "e-ing-db", source: "ingest", target: "analyticsDB", style: { stroke: "#424754" } },
 ];
 
-function ExplorerContent() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<ServiceNode>(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+import { useEffect } from "react";
+
+function ExplorerContent({ activeReport }: { activeReport?: any }) {
+  const initialNodes = useMemo(() => {
+    if (!activeReport) return INITIAL_NODES;
+
+    const repoName = activeReport.repository || "Repository";
+    const langs = activeReport.technology_stack?.languages || [];
+    const frameworks = activeReport.technology_stack?.frameworks || [];
+    const primaryLang = langs[0] || "Codebase";
+    const archStyle = activeReport.architecture_style || "Layered Architecture";
+    const quality = activeReport.engineering_quality || {};
+    const maintainability = Math.round(quality.maintainability_score || 85);
+    const risks = activeReport.engineering_risks || [];
+
+    const nodes: ServiceNode[] = [
+      {
+        id: "repo",
+        position: { x: 80, y: 150 },
+        data: {
+          label: repoName.split("/").pop() || repoName,
+          type: "core",
+          description: `Repository workspace with ${langs.length + frameworks.length} detected technologies.`,
+          connections: langs.length,
+          risk: "Low",
+        },
+        style: {
+          background: "rgba(59, 130, 246, 0.15)",
+          border: "1px solid rgba(59, 130, 246, 0.4)",
+          borderRadius: "8px",
+          color: "#3b82f6",
+          fontWeight: "bold",
+          fontSize: "11px",
+          padding: "10px",
+          width: 140,
+        },
+      },
+      {
+        id: "arch",
+        position: { x: 280, y: 70 },
+        data: {
+          label: archStyle,
+          type: "core",
+          description: `System architectural design: ${archStyle}. Evaluated by Analyzer AI.`,
+          connections: 5,
+          risk: "Low",
+        },
+        style: {
+          background: "rgba(59, 130, 246, 0.15)",
+          border: "2px solid #3b82f6",
+          borderRadius: "8px",
+          color: "#3b82f6",
+          fontWeight: "bold",
+          fontSize: "11px",
+          padding: "10px",
+          width: 140,
+        },
+      },
+      {
+        id: "lang",
+        position: { x: 280, y: 230 },
+        data: {
+          label: `Primary: ${primaryLang}`,
+          type: "bottleneck",
+          description: `Code quality audit hotspots. Main language parsed: ${primaryLang}.`,
+          connections: 3,
+          risk: risks.length > 0 ? "Medium" : "Low",
+        },
+        style: {
+          background: "rgba(239, 68, 68, 0.15)",
+          border: "1px solid rgba(239, 68, 68, 0.4)",
+          borderRadius: "8px",
+          color: "#ef4444",
+          fontWeight: "bold",
+          fontSize: "11px",
+          padding: "10px",
+          width: 140,
+        },
+      },
+      {
+        id: "quality",
+        position: { x: 480, y: 150 },
+        data: {
+          label: `Maintainability: ${maintainability}%`,
+          type: "database",
+          description: `Overall codebase health audit maintainability index is ${maintainability}/100.`,
+          connections: 1,
+          risk: maintainability > 75 ? "Low" : "High",
+        },
+        style: {
+          background: "rgba(245, 158, 11, 0.15)",
+          border: "1px solid rgba(245, 158, 11, 0.4)",
+          borderRadius: "8px",
+          color: "#f59e0b",
+          fontWeight: "bold",
+          fontSize: "11px",
+          padding: "10px",
+          width: 140,
+        },
+      }
+    ];
+
+    return nodes;
+  }, [activeReport]);
+
+  const initialEdges = useMemo(() => {
+    if (!activeReport) return INITIAL_EDGES;
+    return [
+      { id: "e-repo-arch", source: "repo", target: "arch", animated: true, style: { stroke: "#424754" } },
+      { id: "e-repo-lang", source: "repo", target: "lang", animated: true, style: { stroke: "#ef4444" } },
+      { id: "e-arch-qual", source: "arch", target: "quality", style: { stroke: "#424754" } },
+      { id: "e-lang-qual", source: "lang", target: "quality", style: { stroke: "#424754" } },
+    ];
+  }, [activeReport]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<ServiceNode>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
   const [mode, setMode] = useState<"dependency" | "tree" | "data">("dependency");
   const [showInspector, setShowInspector] = useState(true);
 
@@ -293,7 +412,7 @@ function ExplorerContent() {
   );
 }
 
-export default function ArchitectureExplorer() {
+export default function ArchitectureExplorer({ activeReport }: { activeReport?: any }) {
   return (
     <ReactFlowProvider>
       <div className="md:col-span-12 bg-surface-container-low border border-outline-variant rounded-xl p-5 select-none shadow-sm flex flex-col justify-between">
@@ -309,7 +428,7 @@ export default function ArchitectureExplorer() {
         </div>
 
         {/* React Flow viewport frame */}
-        <ExplorerContent />
+        <ExplorerContent activeReport={activeReport} />
       </div>
     </ReactFlowProvider>
   );

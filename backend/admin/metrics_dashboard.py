@@ -30,16 +30,60 @@ class MetricsDashboard:
                     "avg_tokens": m.avg_tokens
                 }
 
-        # Daily usage analytics simulation
+        # Daily usage analytics from SQLite DB storage
+        from backend.api.sqlite_mock import DBStorage
+        db = DBStorage()
         daily_analyses = []
         now = datetime.now(timezone.utc)
-        for i in range(7):
-            day = now - timedelta(days=i)
-            daily_analyses.append({
-                "date": day.strftime("%Y-%m-%d"),
-                "analyses_count": random.randint(15, 60),
-                "success_rate_pct": round(random.uniform(94.0, 99.9), 1)
-            })
+        conn = db._get_connection()
+        try:
+            for i in range(7):
+                day = now - timedelta(days=i)
+                day_str = day.strftime("%Y-%m-%d")
+                
+                # Check resumes created on this day
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(*) FROM documents WHERE datetime(created_at) >= ? AND datetime(created_at) < ?",
+                    (f"{day_str} 00:00:00", f"{day_str} 23:59:59")
+                )
+                doc_count = cursor.fetchone()[0]
+                
+                # Add workflow runs
+                cursor.execute(
+                    "SELECT COUNT(*) FROM workflow_instances WHERE datetime(started_at) >= ? AND datetime(started_at) < ?",
+                    (f"{day_str} 00:00:00", f"{day_str} 23:59:59")
+                )
+                flow_count = cursor.fetchone()[0]
+                
+                total_runs = doc_count + flow_count
+                
+                # Success rate
+                cursor.execute(
+                    "SELECT COUNT(*) FROM workflow_instances WHERE status = 'failed' AND datetime(started_at) >= ? AND datetime(started_at) < ?",
+                    (f"{day_str} 00:00:00", f"{day_str} 23:59:59")
+                )
+                failed_count = cursor.fetchone()[0]
+                
+                success_rate = 100.0
+                if total_runs > 0:
+                    success_rate = round(((total_runs - failed_count) / total_runs) * 100, 1)
+                
+                daily_analyses.append({
+                    "date": day_str,
+                    "analyses_count": total_runs,
+                    "success_rate_pct": success_rate
+                })
+        except Exception:
+            for i in range(7):
+                day = now - timedelta(days=i)
+                daily_analyses.append({
+                    "date": day.strftime("%Y-%m-%d"),
+                    "analyses_count": 0,
+                    "success_rate_pct": 100.0
+                })
+        finally:
+            conn.close()
 
         # Most used intelligence module helper
         most_used = "Resume Intelligence"

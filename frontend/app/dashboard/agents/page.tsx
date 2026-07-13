@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Bot } from "lucide-react";
 import AgentFilters, { FilterValue } from "@/components/agents/agent-filters";
 import AgentCard, { AgentData } from "@/components/agents/agent-card";
@@ -94,6 +94,35 @@ export default function AgentDirectoryPage() {
   const [filter, setFilter] = useState<FilterValue>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isEmpty, setIsEmpty] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/agents")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch agents");
+        return res.json();
+      })
+      .then((data) => {
+        if (data && data.agents) {
+          const apiAgents = data.agents.map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            status: a.status.toLowerCase() === "active" ? "active" : "draft",
+            iconType: a.capabilities.includes("GITHUB_INTELLIGENCE") || a.capabilities.includes("CODE_ANALYSIS") ? "code" : a.capabilities.includes("SECURITY") ? "shield" : "analytics",
+            metrics: {
+              key1: "Capabilities",
+              val1: a.capabilities.join(", "),
+              key2: "Latency",
+              val2: `~${a.response_time_ms}ms`,
+            }
+          }));
+          setAgents(apiAgents);
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading agents:", err);
+      });
+  }, []);
 
   // Filter & search operations
   const filteredAgents = agents.filter((agent) => {

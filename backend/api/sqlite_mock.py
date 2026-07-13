@@ -45,6 +45,11 @@ class DBStorage:
             self._initialized = True
 
     def _get_connection(self) -> sqlite3.Connection:
+        try:
+            from backend.platform.hardening.metrics_collector import MetricsCollector
+            MetricsCollector().increment("db_queries_total")
+        except Exception:
+            pass
         if getattr(self, "_is_uri", False):
             conn = sqlite3.connect(self.db_path, uri=True, timeout=60.0)
         else:

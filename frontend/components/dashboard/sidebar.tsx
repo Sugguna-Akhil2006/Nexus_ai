@@ -14,6 +14,7 @@ import {
   Settings, 
   User,
   FileSearch,
+  FileCode,
   ShieldCheck,
   Workflow
 } from "lucide-react";
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNewProject } from "@/providers/new-project-provider";
 import { useWorkspace } from "@/providers/workspace-provider";
+import { useAuth } from "@/providers/auth-provider";
 
 function WorkspaceSwitcher() {
   const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
@@ -28,21 +30,21 @@ function WorkspaceSwitcher() {
   return (
     <div className="w-full mb-6 relative">
       <label className="font-bold text-on-surface-variant/80 block pl-0.5 uppercase tracking-wider text-[9px] mb-1">
-        Active Workspace
+        Workspace
       </label>
       <div className="relative">
         <select
           value={activeWorkspace?.workspace_id || ""}
           onChange={(e) => switchWorkspace(e.target.value)}
-          className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 pr-8 text-on-surface focus:outline-none focus:border-primary transition-all text-xs font-semibold appearance-none cursor-pointer"
+          className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-xs md:text-sm font-semibold focus:outline-none focus:border-primary text-on-surface appearance-none cursor-pointer"
         >
           {workspaces.map((ws) => (
             <option key={ws.workspace_id} value={ws.workspace_id}>
-              {ws.name} {ws.is_favorite ? "⭐" : ""}
+              {ws.name}
             </option>
           ))}
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant/80 text-[10px]">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant/60">
           ▼
         </div>
       </div>
@@ -54,6 +56,7 @@ interface NavigationItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -64,8 +67,9 @@ const NAV_ITEMS: NavigationItem[] = [
   { label: "Workflows", href: "/dashboard/workflows", icon: Workflow },
   { label: "Marketplace", href: "/dashboard/marketplace", icon: Store },
   { label: "Resume Analyzer", href: "/dashboard/analyzer", icon: FileSearch },
+  { label: "GitHub Analyzer", href: "/dashboard/github-analyzer", icon: FileCode },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { label: "Admin", href: "/dashboard/admin", icon: ShieldCheck },
+  { label: "Admin", href: "/dashboard/admin", icon: ShieldCheck, adminOnly: true },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -78,6 +82,7 @@ interface DashboardSidebarProps {
 export default function DashboardSidebar({ className, isMobile = false, onItemClick }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { openNewProject } = useNewProject();
+  const { user } = useAuth();
 
   const handleNewProject = () => {
     openNewProject();
@@ -114,7 +119,7 @@ export default function DashboardSidebar({ className, isMobile = false, onItemCl
 
       {/* Main Navigation */}
       <nav className="flex-grow space-y-1 overflow-y-auto pr-1">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === "Admin").map((item) => {
           const isActive = 
             item.href === "/dashboard"
               ? pathname === "/dashboard"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -12,32 +13,64 @@ import {
 
 interface ChartDataPoint {
   time: string;
-  modelA: number; // GPT-X load
-  modelB: number; // Nexus-7 load
+  modelA: number; // API requests count
+  modelB: number; // API failures or scaled metric
 }
 
-const DATA: ChartDataPoint[] = [
-  { time: "00:00", modelA: 150, modelB: 180 },
-  { time: "02:00", modelA: 110, modelB: 160 },
-  { time: "04:00", modelA: 80,  modelB: 140 },
-  { time: "06:00", modelA: 100, modelB: 150 },
-  { time: "08:00", modelA: 120, modelB: 165 },
-  { time: "10:00", modelA: 95,  modelB: 145 },
-  { time: "12:00", modelA: 60,  modelB: 120 },
-  { time: "14:00", modelA: 85,  modelB: 135 },
-  { time: "16:00", modelA: 100, modelB: 125 },
-  { time: "18:00", modelA: 75,  modelB: 140 },
-  { time: "20:00", modelA: 40,  modelB: 150 },
-  { time: "22:00", modelA: 90,  modelB: 165 },
-];
-
 export default function InferenceLoadsChart() {
+  const [data, setData] = useState<ChartDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/platform/metrics")
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((metrics) => {
+        const timeline = metrics.usage_timeline || [];
+        const formatted = timeline.map((slot: any) => ({
+          time: slot.time,
+          modelA: slot.requests,
+          modelB: slot.failures,
+          dataKb: slot.data_kb,
+        }));
+        if (formatted.length === 0) {
+          setData([{ time: "Ready", modelA: 0, modelB: 0 }]);
+        } else {
+          setData(formatted);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="col-span-12 lg:col-span-8 bg-surface-container-low border border-outline-variant p-6 rounded-xl flex items-center justify-center h-80">
+        <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || data.length === 0) {
+    return (
+      <div className="col-span-12 lg:col-span-8 bg-surface-container-low border border-outline-variant p-6 rounded-xl flex flex-col items-center justify-center h-80 text-center select-none">
+        <span className="text-on-surface-variant font-medium text-sm">No Analytics Available</span>
+      </div>
+    );
+  }
+
   return (
     <div className="col-span-12 lg:col-span-8 bg-surface-container-low border border-outline-variant p-6 rounded-xl flex flex-col gap-6 group hover:border-outline-variant/80 transition-all duration-300">
       {/* Title & Legend Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-xl font-semibold text-on-surface tracking-tight">
-          Inference Loads
+          System API Loads
         </h3>
         
         {/* Custom Legend */}
@@ -45,13 +78,13 @@ export default function InferenceLoadsChart() {
           <div className="flex items-center gap-2 select-none">
             <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" />
             <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest">
-              Model-A (GPT-X)
+              Requests Count
             </span>
           </div>
           <div className="flex items-center gap-2 select-none">
             <span className="w-2.5 h-2.5 rounded-full bg-[#adc6ff]" />
             <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest">
-              Model-B (Nexus-7)
+              System Failures
             </span>
           </div>
         </div>
@@ -61,7 +94,7 @@ export default function InferenceLoadsChart() {
       <div className="h-64 w-full relative select-none">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart 
-            data={DATA} 
+            data={data} 
             margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
           >
             {/* Ambient gradients */}
@@ -114,7 +147,7 @@ export default function InferenceLoadsChart() {
             <Area
               type="monotone"
               dataKey="modelA"
-              name="Model-A Load"
+              name="Requests"
               stroke="#3b82f6"
               strokeWidth={3}
               fillOpacity={1}
@@ -126,7 +159,7 @@ export default function InferenceLoadsChart() {
             <Area
               type="monotone"
               dataKey="modelB"
-              name="Model-B Load"
+              name="Failures"
               stroke="#adc6ff"
               strokeWidth={2}
               strokeDasharray="5 5"

@@ -76,3 +76,77 @@ class RiskReport(BaseModel):
     score: float  # 0.0 to 1.0
     alerts: List[str] = Field(default_factory=list)
     calculated_at: str = Field(default_factory=_utcnow)
+
+
+class ApprovalType(str, Enum):
+    """Workflow routing types."""
+    AUTO = "auto"
+    MANUAL = "manual"
+
+
+class SecurityCheckResult(BaseModel):
+    """Security check results scans."""
+    has_prompt_injection: bool = False
+    detected_pii: List[str] = Field(default_factory=list)
+    has_unsafe_tools: bool = False
+    is_malicious_file: bool = False
+    warnings: List[str] = Field(default_factory=list)
+
+
+class RiskAssessment(BaseModel):
+    """Audit risk level outcome."""
+    risk_level: RiskLevel
+    score: float
+    alerts: List[str] = Field(default_factory=list)
+
+
+class ComplianceStatus(BaseModel):
+    """GDPR/SOC2/ISO Compliance check status."""
+    gdpr_compliant: bool = True
+    soc2_compliant: bool = True
+    iso_compliant: bool = True
+    enterprise_compliant: bool = True
+    non_compliant_reasons: List[str] = Field(default_factory=list)
+
+
+class GovernanceDecision(BaseModel):
+    """Decision block made by governance engine guard."""
+    is_approved: bool
+    risk_level: RiskLevel
+    approval_type: ApprovalType
+    decision_reasons: List[str] = Field(default_factory=list)
+    security_check: SecurityCheckResult
+    risk_assessment: RiskAssessment
+
+
+class AuditRecord(BaseModel):
+    """System audit logs tracking details."""
+    record_id: str
+    timestamp: str
+    user_id: str
+    workspace_id: str
+    module_used: str
+    model_used: str
+    provider_used: str
+    tokens_consumed: int
+    cost_estimated: float
+    latency_ms: float
+    status: str
+    policy_violations: List[str] = Field(default_factory=list)
+    security_alerts: List[str] = Field(default_factory=list)
+    risk_level: str
+
+
+class PolicyRule(BaseModel):
+    """Governance policy validation rules."""
+    policy_id: str
+    name: str
+    workspace_id: str
+    allowed_modules: List[str] = Field(default_factory=list)
+    allowed_models: List[str] = Field(default_factory=list)
+    allowed_providers: List[str] = Field(default_factory=list)
+    allowed_plugins: List[str] = Field(default_factory=list)
+    max_tokens: int
+    max_cost: float
+    max_execution_time: float
+    is_active: bool

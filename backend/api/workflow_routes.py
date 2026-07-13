@@ -53,6 +53,17 @@ class ApproveRequest(BaseModel):
 # REST routes
 # =====================================================================
 
+@router.get("")
+def list_workflows():
+    """Lists all workflow definitions."""
+    db = DBStorage()
+    try:
+        rows = db.list_workflow_definitions()
+        return {"workflows": rows}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list workflows: {e}")
+
+
 @router.post("")
 def create_workflow(req: CreateWorkflowRequest):
     """Creates a new workflow definition."""

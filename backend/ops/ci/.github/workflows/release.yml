@@ -1,0 +1,18 @@
+name: Release Candidate Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Push Docker images
+        run: |
+          echo "Simulating release build and Docker Registry push..."
+          docker build -t nexus-backend:${{ github.ref_name }} -f backend/ops/docker/Dockerfile.backend .
+          docker build -t nexus-worker:${{ github.ref_name }} -f backend/ops/docker/Dockerfile.worker .

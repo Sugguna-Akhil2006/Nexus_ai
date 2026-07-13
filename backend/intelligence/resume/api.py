@@ -116,14 +116,30 @@ def analyze_resume(req: AnalyzeRequest) -> dict:
         parsed = svc.get_parsed_resume(req.document_id)
 
         text = _resume_texts.get(req.document_id) or ""
+        if not text:
+            # Try loading from scratch directory (persisted on upload)
+            import os
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+            scratch_path = os.path.join(base_dir, "scratch", "documents", f"{req.document_id}.txt")
+            if os.path.exists(scratch_path):
+                with open(scratch_path, "r", encoding="utf-8") as f:
+                    text = f.read()
+                _resume_texts[req.document_id] = text  # re-populate memory cache
+
         if not text and parsed:
-            text = f"Name: {parsed.contact_info.name}\nSkills: {', '.join(parsed.skills)}"
+            # Build minimal text from structured data for ATS scoring only (no LLM call)
+            skills_str = ", ".join(parsed.skills) if parsed.skills else ""
+            name_str = parsed.contact_info.name or ""
+            text = f"Name: {name_str}\nSkills: {skills_str}"
 
         if not text.strip():
-            text = "Jane Doe\nSkills: Python, FastAPI\nExperience: Software Developer"
+            raise HTTPException(
+                status_code=400,
+                detail="Resume text could not be retrieved. Please re-upload the document."
+            )
 
         # Determine if we run synchronously or asynchronously based on text size
-        is_large = product_service.is_large_resume(text) or "large" in text.lower()
+        is_large = False
 
         if is_large:
             # Async background execution

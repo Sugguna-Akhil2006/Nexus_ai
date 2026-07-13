@@ -52,3 +52,36 @@ class RiskAssessor:
             score=score,
             alerts=alerts,
         )
+
+    def assess_risk(self, context: dict, security_res: Any) -> Any:
+        """Calculates workflow execution risk level from scanning results."""
+        from backend.governance.models import RiskLevel, RiskAssessment
+        score = 0.0
+        alerts = []
+
+        if security_res.has_prompt_injection:
+            score += 0.5
+            alerts.append("Prompt injection risk detected.")
+        if security_res.detected_pii:
+            score += 0.3
+            alerts.append("PII leakage risk identified.")
+        if security_res.is_malicious_file:
+            score += 0.6
+            alerts.append("Malicious file upload attempt.")
+
+        score = min(1.0, score)
+
+        if score >= 0.7:
+            level = RiskLevel.CRITICAL
+        elif score >= 0.4:
+            level = RiskLevel.HIGH
+        elif score >= 0.2:
+            level = RiskLevel.MEDIUM
+        else:
+            level = RiskLevel.LOW
+
+        return RiskAssessment(
+            risk_level=level,
+            score=score,
+            alerts=alerts
+        )

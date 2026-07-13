@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, Wand2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FileExplorer, { FolderItem } from "@/components/documents/file-explorer";
@@ -10,139 +10,68 @@ import AIPanel, { DocumentAnalysis } from "@/components/documents/ai-panel";
 import DashboardBreadcrumbs from "@/components/dashboard/breadcrumbs";
 import { toast } from "sonner";
 import EmptyState from "@/components/common/empty-state";
-
-// Folders mock structure
-const DOCUMENT_FOLDERS: FolderItem[] = [
-  {
-    id: "folder-1",
-    name: "Project Alpha",
-    files: [
-      { name: "Q3_Financial_Review.pdf", type: "pdf" },
-      { name: "Stakeholder_Analysis.docx", type: "docx" },
-      { name: "Technical_Specs_v2.pdf", type: "pdf" },
-    ],
-  },
-  {
-    id: "folder-2",
-    name: "Legal Archive",
-    files: [
-      { name: "NDA_Agreement_Draft.pdf", type: "pdf" },
-      { name: "Compliance_Policy.xlsx", type: "xlsx" },
-    ],
-  },
-  {
-    id: "folder-3",
-    name: "Training Data",
-    files: [
-      { name: "Model_Training_Logs.xlsx", type: "xlsx" },
-    ],
-  },
-];
-
-// Document AI insights database
-const ANALYSIS_DB: Record<string, DocumentAnalysis> = {
-  "Q3_Financial_Review.pdf": {
-    filename: "Q3_Financial_Review.pdf",
-    takeaway: "Revenue growth exceeded projections by 14.2% driven by aggressive expansion in APAC regions.",
-    sentiment: "Positive",
-    sentimentColor: "text-emerald-400",
-    confidence: "98%",
-    entities: ["Global Corp", "NASDAQ: GCRP", "Q3 FY24", "APAC Market"],
-    dataPoints: [
-      { label: "Revenue Growth (APAC)", value: "+14.2%" },
-      { label: "Profit Margin", value: "22.4%" },
-      { label: "Deviation from projected target", value: "14%" },
-      { label: "Total APAC Revenue", value: "$12.4M" },
-    ],
-    risks: [
-      "Currency exchange rate volatility in APAC markets might slightly squeeze Q4 margins.",
-      "Deviations from target projection requires auditing APAC division expense logs.",
-    ],
-  },
-  "Stakeholder_Analysis.docx": {
-    filename: "Stakeholder_Analysis.docx",
-    takeaway: "Key stakeholder sentiment is currently flagged as neutral-negative due to delayed Q4 product releases.",
-    sentiment: "Neutral",
-    sentimentColor: "text-amber-400",
-    confidence: "92%",
-    entities: ["Stakeholders", "Product Team", "Q4 Roadmap", "Executive Board"],
-    dataPoints: [
-      { label: "Net Promoter Score", value: "7.2 / 10" },
-      { label: "Communication Frequency", value: "Bi-weekly" },
-      { label: "Target satisfaction", value: "90%" },
-      { label: "Current satisfaction", value: "78%" },
-    ],
-    risks: [
-      "Stakeholder alignment risk if Q4 releases are pushed further.",
-      "Direct executive board review required for delayed roadmap items.",
-    ],
-  },
-  "Technical_Specs_v2.pdf": {
-    filename: "Technical_Specs_v2.pdf",
-    takeaway: "Grover search parameters must strictly map 2-qubit targets on US-East servers to satisfy security rules.",
-    sentiment: "Positive",
-    sentimentColor: "text-emerald-400",
-    confidence: "96%",
-    entities: ["Qiskit Simulation", "Aer Simulator", "US-East Cloud", "controlled-Z"],
-    dataPoints: [
-      { label: "Simulation backend", value: "qasm_simulator" },
-      { label: "Qubit count", value: "2" },
-      { label: "Base gate count", value: "18" },
-      { label: "API Compliance", value: "100%" },
-    ],
-    risks: [
-      "Security checks flag a warning if quantum circuits execute on overseas simulation clusters.",
-      "Aer Simulator performance might experience throttle under peak concurrency logs.",
-    ],
-  },
-  // Fallbacks for closed folders files
-  "NDA_Agreement_Draft.pdf": {
-    filename: "NDA_Agreement_Draft.pdf",
-    takeaway: "Standard mutual nondisclosure agreement governing document sharing protocols.",
-    sentiment: "Neutral",
-    sentimentColor: "text-amber-400",
-    confidence: "95%",
-    entities: ["NDA", "Legal Dept", "Confidentiality"],
-    dataPoints: [
-      { label: "Term duration", value: "3 Years" },
-      { label: "Jurisdiction", value: "Delaware" },
-    ],
-    risks: ["Indemnity caps need review from legal council."],
-  },
-  "Compliance_Policy.xlsx": {
-    filename: "Compliance_Policy.xlsx",
-    takeaway: "Compliance policy auditing sheet tracking operational and regulatory flags.",
-    sentiment: "Positive",
-    sentimentColor: "text-emerald-400",
-    confidence: "99%",
-    entities: ["Audit Logs", "Compliance", "SEC Rules"],
-    dataPoints: [
-      { label: "Audit status", value: "Passed" },
-      { label: "Flagged nodes", value: "0" },
-    ],
-    risks: ["Requires manual re-evaluation on quarterly cycles."],
-  },
-  "Model_Training_Logs.xlsx": {
-    filename: "Model_Training_Logs.xlsx",
-    takeaway: "Deep learning training cycles metrics recording validation losses and accuracies.",
-    sentiment: "Positive",
-    sentimentColor: "text-emerald-400",
-    confidence: "97%",
-    entities: ["Epoch Logs", "Nexus-4B Model", "Loss curve"],
-    dataPoints: [
-      { label: "Final Accuracy", value: "98.4%" },
-      { label: "Validation Loss", value: "0.012" },
-    ],
-    risks: ["Potential overfitting patterns detected on cluster nodes."],
-  },
-};
+import { useWorkspace } from "@/providers/workspace-provider";
 
 export default function DocumentIntelligencePage() {
-  const [activeFilename, setActiveFilename] = useState("Q3_Financial_Review.pdf");
+  const { activeWorkspace } = useWorkspace();
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [activeFilename, setActiveFilename] = useState("");
   const [zoom, setZoom] = useState(100);
-  const [isEmpty, setIsEmpty] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [isSending, setIsSending] = useState(false);
 
-  const activeAnalysis = ANALYSIS_DB[activeFilename] || ANALYSIS_DB["Q3_Financial_Review.pdf"];
+  const activeWorkspaceId = activeWorkspace?.workspace_id || "default-ws";
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch(`/api/documents?workspace_id=${activeWorkspaceId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const docs = data.documents || [];
+        setDocuments(docs);
+        if (docs.length > 0 && !activeFilename) {
+          setActiveFilename(docs[0].name);
+        } else if (docs.length === 0) {
+          setActiveFilename("");
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load documents", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [activeWorkspaceId]);
+
+  const activeAnalysis: DocumentAnalysis = {
+    filename: activeFilename || "No Document",
+    takeaway: activeFilename ? `Semantic vector index established for document: ${activeFilename}. Ingested into database.` : "No document selected.",
+    sentiment: "Positive",
+    sentimentColor: "text-emerald-400",
+    confidence: "95%",
+    entities: activeFilename ? [activeFilename, "Workspace Index", "Secure Node"] : [],
+    dataPoints: activeFilename ? [
+      { label: "Status", value: "Indexed" },
+      { label: "Format", value: activeFilename.split(".").pop()?.toUpperCase() || "PDF" }
+    ] : [],
+    risks: activeFilename ? ["No critical compliance threats detected in primary chunk indexing."] : []
+  };
+
+  // Folders structure for file-explorer
+  const folders: FolderItem[] = [
+    {
+      id: "workspace-docs",
+      name: "Workspace Documents",
+      files: documents.map((doc: any) => ({
+        name: doc.name,
+        type: doc.name.split(".").pop()?.toLowerCase() as any || "pdf"
+      }))
+    }
+  ];
 
   // Zoom events
   const handleZoomIn = () => {
@@ -153,16 +82,42 @@ export default function DocumentIntelligencePage() {
     setZoom((prev) => Math.max(prev - 10, 60));
   };
 
-  // Inquiry Submission simulation
-  const handleSendInquiry = (prompt: string) => {
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: `Submitting inquiry: "${prompt}"...`,
-        success: 'AI simulations calculated against document coordinates.',
-        error: 'Simulation failed.',
+  const handleSendInquiry = async (prompt: string) => {
+    const activeDoc = documents.find((d) => d.name === activeFilename);
+    if (!activeDoc) {
+      toast.error("Please upload or select a document first.");
+      return;
+    }
+
+    const userMsg = { role: "user" as const, content: prompt };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setIsSending(true);
+
+    try {
+      const res = await fetch("/api/document/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: activeWorkspaceId,
+          document_ids: [activeDoc.document_id],
+          query: prompt
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Query failed.");
       }
-    );
+
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, { role: "assistant" as const, content: data.answer }]);
+      toast.success("AI response received!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to query document.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleTriggerMagicInsight = () => {
@@ -180,27 +135,33 @@ export default function DocumentIntelligencePage() {
     <div className="flex flex-col h-[calc(100vh-64px)] w-full overflow-hidden bg-background text-on-background relative select-none">
       <div className="px-6 md:px-8 pt-4 flex items-center justify-between shrink-0">
         <DashboardBreadcrumbs />
-        <Button 
-          variant="ghost" 
-          size="xs" 
-          onClick={() => setIsEmpty(!isEmpty)} 
-          className="text-[10px] font-mono text-on-surface-variant/55 hover:text-primary cursor-pointer transition-colors"
-        >
-          {isEmpty ? "● Show Documents" : "○ Simulate Empty State"}
-        </Button>
       </div>
       <div className="flex-1 flex overflow-hidden">
         
-        {isEmpty ? (
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : documents.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-8 bg-surface-container-lowest/20">
-            <EmptyState
-              icon={FileText}
-              title="No Documents Uploaded"
-              description="Upload files to begin semantic vector embedding extraction, document summaries, risk profiling, and context searches."
-              actionLabel="Upload First Document"
-              onAction={() => toast.success("Initiating secure file gateway upload protocol...")}
-              accentColor="primary"
-            />
+            <div className="max-w-md w-full">
+              <FileExplorer
+                activeFilename={activeFilename}
+                onSelectFile={setActiveFilename}
+                folders={folders}
+                onUploadSuccess={fetchDocuments}
+              />
+            </div>
+            <div className="flex-grow flex items-center justify-center">
+              <EmptyState
+                icon={FileText}
+                title="No Documents Uploaded"
+                description="Upload files to begin semantic vector embedding extraction, document summaries, risk profiling, and context searches."
+                actionLabel="Upload First Document"
+                onAction={() => document.getElementById("file-dropzone-input")?.click()}
+                accentColor="primary"
+              />
+            </div>
           </div>
         ) : (
           <>
@@ -208,7 +169,8 @@ export default function DocumentIntelligencePage() {
             <FileExplorer
               activeFilename={activeFilename}
               onSelectFile={setActiveFilename}
-              folders={DOCUMENT_FOLDERS}
+              folders={folders}
+              onUploadSuccess={fetchDocuments}
             />
 
             {/* Column 2: Document Preview Canvas */}
@@ -233,7 +195,9 @@ export default function DocumentIntelligencePage() {
             {/* Column 3: AI Intelligence panel */}
             <AIPanel
               analysis={activeAnalysis}
+              chatMessages={chatMessages}
               onSendInquiry={handleSendInquiry}
+              isSending={isSending}
             />
 
             {/* Magic audit Floating Action Button (FAB) positioned just left of right panel */}

@@ -105,11 +105,61 @@ const AGENT_MARKET_ITEMS: AgentMarketplaceItem[] = [
   },
 ];
 
+import { useEffect } from "react";
+
 export default function AgentMarketplacePage() {
+  const [plugins, setPlugins] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [timeframe, setTimeframe] = useState<TimeframeValue>("week");
   const [isEmpty, setIsEmpty] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlugins = async () => {
+    try {
+      const res = await fetch("/api/registry/plugins");
+      if (res.ok) {
+        const data = await res.json();
+        setPlugins(data.plugins || []);
+      }
+    } catch (e) {
+      console.error("Failed to load plugins registry", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlugins();
+  }, []);
+
+  const marketItems = useMemo(() => {
+    return plugins.map(p => {
+      const mockMeta = AGENT_MARKET_ITEMS.find(item => item.id === p.plugin_id) || {
+        price: "Free",
+        rating: "5.0",
+        tag: "Verified",
+        category: "code",
+        coverUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBhM5nUh4x4dHyG3S3Zs54mIWZxqaWUOGMn41tMDu-CFLpEJ5BQs2agVdma9r4LfpQSOLQyzpc_DfEIUZN3Y9K2h1QcBn9AhwQb5Ty9OiXANFbIHuePNPzJa5JOuLl9YeRkL5JeFhr8ek8mHrf5V8uDcyLqZ66UVVfvaltr65FczxkfuNd1566l9JAdZIpPL7mmbSgX1eWOyD3B2dSavffQkJ5Qw7eOQA2xku2B8TC3UtblGg3LD1LLCsxPOe_Eom0HPah8-ygrQxNw",
+        initials: ["MX"],
+        plusCount: 0
+      };
+
+      return {
+        id: p.plugin_id,
+        name: p.name,
+        price: mockMeta.price,
+        description: p.description,
+        rating: mockMeta.rating,
+        tag: (p.is_enabled ? "Installed" : mockMeta.tag) as any,
+        category: mockMeta.category,
+        coverUrl: mockMeta.coverUrl,
+        initials: mockMeta.initials,
+        plusCount: mockMeta.plusCount,
+        isInstalled: p.is_enabled
+      };
+    });
+  }, [plugins]);
 
   // Handle Category click toggles
   const handleCategoryClick = (categoryId: string) => {
@@ -117,18 +167,24 @@ export default function AgentMarketplacePage() {
   };
 
   // Perform install action trigger callback
-  const handleInstallAgent = (agentId: string) => {
-    const item = AGENT_MARKET_ITEMS.find((a) => a.id === agentId);
-    if (item) {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1500)),
-        {
-          loading: `Adding ${item.name} to workspace pipelines...`,
-          success: `Agent "${item.name}" has been successfully added to your workspace.`,
-          error: 'Failed to install agent.',
-        }
-      );
-    }
+  const handleInstallAgent = async (agentId: string) => {
+    const item = marketItems.find((a) => a.id === agentId);
+    if (!item) return;
+
+    toast.promise(
+      (async () => {
+        const res = await fetch(`/api/registry/plugins/${agentId}/toggle?enabled=${!item.isInstalled}`, {
+          method: "POST"
+        });
+        if (!res.ok) throw new Error("Operation failed");
+        await fetchPlugins();
+      })(),
+      {
+        loading: item.isInstalled ? `Uninstalling ${item.name}...` : `Installing ${item.name}...`,
+        success: item.isInstalled ? `Plugin "${item.name}" uninstalled successfully.` : `Plugin "${item.name}" installed and active!`,
+        error: 'Failed to update plugin status.',
+      }
+    );
   };
 
   // Handle developer program signup trigger callback
@@ -145,7 +201,7 @@ export default function AgentMarketplacePage() {
 
   // Filter items based on active search input values and category filters
   const filteredAgents = useMemo(() => {
-    return AGENT_MARKET_ITEMS.filter((agent) => {
+    return marketItems.filter((agent) => {
       const matchesCategory = selectedCategory ? agent.category === selectedCategory : true;
       const matchesSearch = searchQuery
         ? agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -153,7 +209,7 @@ export default function AgentMarketplacePage() {
         : true;
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, marketItems]);
 
   return (
     <div className="space-y-8 md:space-y-12 relative">
@@ -268,8 +324,6 @@ export default function AgentMarketplacePage() {
         </>
       )}
 
-      {/* Bottom statistics indicators */}
-      <StatsSection />
     </div>
   );
 }

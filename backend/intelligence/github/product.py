@@ -71,11 +71,43 @@ class GitHubProduct:
         # Step 1: Repository Loader stage
         try:
             # Resolve directory path
-            # Look inside options for local path, fallback to repository_url if it is an existing directory
+            repository_url_str = str(repository_url or "")
+            is_remote = any(repository_url_str.startswith(prefix) for prefix in ["http://", "https://", "git://", "git@"])
+            
             target_path = options.get("workspace_path") or repository_url or "."
-            if not os.path.exists(target_path) or not os.path.isdir(target_path):
-                # Fallback to current directory for demo/test stability if folder not found
-                target_path = "."
+            
+            if is_remote:
+                storage_clones = os.path.abspath(os.path.join(".", "storage_data", "cloned_repos"))
+                os.makedirs(storage_clones, exist_ok=True)
+                temp_dir = os.path.join(storage_clones, f"repo-{str(uuid.uuid4())[:8]}")
+                logger.info(f"Cloning remote repository {repository_url} into {temp_dir}")
+                import subprocess
+                try:
+                    res = subprocess.run(
+                        ["git", "clone", repository_url_str, temp_dir],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=45
+                    )
+                    if res.returncode == 0:
+                        target_path = temp_dir
+                    else:
+                        logger.warning(f"Git clone failed: {res.stderr}. Fallback to empty directory.")
+                        os.makedirs(temp_dir, exist_ok=True)
+                        target_path = temp_dir
+                except Exception as e:
+                    logger.error(f"Error during git clone: {e}")
+                    os.makedirs(temp_dir, exist_ok=True)
+                    target_path = temp_dir
+            else:
+                if not os.path.exists(target_path) or not os.path.isdir(target_path):
+                    if repository_url:
+                        empty_dir = os.path.abspath(os.path.join(".", "storage_data", "empty_repos", f"empty-{str(uuid.uuid4())[:8]}"))
+                        os.makedirs(empty_dir, exist_ok=True)
+                        target_path = empty_dir
+                    else:
+                        target_path = "."
             
             logger.info(f"GitHubProduct: Resolved scan path to {target_path}")
 
